@@ -1,0 +1,3186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manchester LED Frame Encoder</title>
+  <style>
+    :root {
+      --bg: #111214;
+      --panel: #181a1d;
+      --panel-2: #202328;
+      --panel-3: #272b31;
+      --text: #eef1f4;
+      --muted: #a3abb5;
+      --border: #333942;
+      --accent: #61d2c5;
+      --accent-2: #f1c766;
+      --danger: #ff7d7d;
+      --ok: #78dd91;
+      --shadow: rgba(0, 0, 0, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      width: min(1500px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.45rem, 2vw, 2rem);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 650;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 330px minmax(420px, 1fr) 390px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 12px 30px var(--shadow);
+      padding: 14px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .row.three {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      min-width: 0;
+      font: inherit;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    input,
+    select,
+    textarea {
+      padding: 9px 10px;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(97, 210, 197, 0.16);
+    }
+
+    input[type="range"] {
+      padding: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 170px;
+      resize: vertical;
+      line-height: 1.4;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 0.86rem;
+    }
+
+    button {
+      padding: 9px 11px;
+      cursor: pointer;
+      transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button.primary {
+      background: #21413e;
+      border-color: #468c84;
+    }
+
+    button.warn {
+      background: #40351e;
+      border-color: #806932;
+    }
+
+    button.danger {
+      background: #442427;
+      border-color: #87444a;
+    }
+
+    button.small {
+      padding: 7px 9px;
+      font-size: 0.84rem;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 10px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+    }
+
+    .check input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 0.9rem;
+      min-height: 1.3em;
+      text-align: right;
+    }
+
+    .status.ok {
+      color: var(--ok);
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .stat {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+    }
+
+    .stat .k {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 3px;
+    }
+
+    .stat .v {
+      display: block;
+      font-size: 1rem;
+      font-weight: 650;
+      word-break: break-word;
+    }
+
+    .frameBar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .animationHeader {
+      display: grid;
+      grid-template-columns: 1fr minmax(140px, 190px);
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .toolGrid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .toolButton.selected,
+    .frameThumb.selected {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 2px rgba(241, 199, 102, 0.28);
+    }
+
+    .frameStrip {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 74px);
+      gap: 8px;
+      justify-content: start;
+      overflow: visible;
+      padding: 4px 2px 2px;
+      margin-top: 12px;
+      max-width: 100%;
+    }
+
+    .frameThumb {
+      width: 74px;
+      padding: 6px;
+      display: grid;
+      gap: 5px;
+      justify-items: center;
+      background: var(--panel-2);
+    }
+
+    .frameThumb canvas {
+      display: block;
+      width: 56px;
+      height: 56px;
+      background: #0b0c0d;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      image-rendering: pixelated;
+    }
+
+    .frameThumb span {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    details.panel {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    details.panel > summary {
+      padding: 14px;
+      cursor: pointer;
+      font-weight: 700;
+      list-style-position: inside;
+    }
+
+    details.panel > .detailsBody {
+      padding: 0 14px 14px;
+    }
+
+    details.compactDetails {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel-2);
+    }
+
+    details.compactDetails > summary {
+      padding: 9px 10px;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    details.compactDetails > .detailsBody {
+      padding: 0 10px 10px;
+    }
+
+    .canvasShell {
+      width: 100%;
+      overflow: auto;
+      background: #0e0f11;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .canvasShell canvas {
+      display: block;
+      width: min(720px, 100%);
+      aspect-ratio: 1;
+      background: #0b0c0d;
+      border-radius: 4px;
+      image-rendering: pixelated;
+      touch-action: none;
+    }
+
+    #waveCanvas {
+      display: block;
+      width: 100%;
+      height: 220px;
+      background: #0e0f11;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    audio {
+      width: 100%;
+    }
+
+    .paletteGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+      gap: 6px;
+      max-height: 230px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .swatch {
+      height: 34px;
+      padding: 0;
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .swatch.selected {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 2px rgba(241, 199, 102, 0.28);
+    }
+
+    .swatch span {
+      position: absolute;
+      left: 4px;
+      bottom: 2px;
+      color: white;
+      font-size: 0.7rem;
+      text-shadow: 0 1px 2px black;
+    }
+
+    .colorPicker {
+      display: grid;
+      gap: 9px;
+    }
+
+    .colorEditor {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .colorPreview {
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.36);
+    }
+
+    .colorSliders {
+      display: grid;
+      gap: 8px;
+    }
+
+    .colorChoices {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+      gap: 7px;
+      max-height: 170px;
+      overflow: auto;
+      padding: 2px;
+    }
+
+    .colorChoice,
+    .colorChip {
+      height: 34px;
+      padding: 0;
+      border-radius: 6px;
+      border-color: rgba(255, 255, 255, 0.18);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.36);
+    }
+
+    .colorChoice.selected,
+    .colorChip.selected {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 2px rgba(241, 199, 102, 0.28), inset 0 0 0 1px rgba(0, 0, 0, 0.36);
+    }
+
+    .stampActions {
+      align-items: center;
+    }
+
+    .stampActions .muted {
+      align-self: center;
+    }
+
+    .updates {
+      display: grid;
+      gap: 8px;
+    }
+
+    .updateRow {
+      display: grid;
+      grid-template-columns: 74px 54px minmax(92px, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    pre {
+      margin: 0;
+      padding: 10px;
+      min-height: 140px;
+      max-height: 280px;
+      overflow: auto;
+      color: #dfe7ec;
+      background: #0e0f11;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+      font-size: 0.84rem;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    @media (max-width: 1220px) {
+      .app {
+        grid-template-columns: 330px 1fr;
+      }
+
+      .right {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 780px) {
+      .wrap {
+        padding: 12px;
+      }
+
+      header {
+        display: grid;
+        align-items: start;
+      }
+
+      .status {
+        text-align: left;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .row,
+      .row.three,
+      .frameBar,
+      .animationHeader {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Manchester LED frame encoder</h1>
+      <div id="status" class="status">Ready.</div>
+    </header>
+
+    <main class="app">
+      <section class="stack">
+        <section class="panel">
+          <h2>Paint</h2>
+          <div class="controls">
+            <div class="toolGrid">
+              <button id="paintToolBtn" class="toolButton selected" data-tool="paint" type="button">Paint</button>
+              <button id="eraseToolBtn" class="toolButton" data-tool="erase" type="button">Erase</button>
+              <button id="fillToolBtn" class="toolButton" data-tool="fill" type="button">Fill</button>
+              <button id="stampToolBtn" class="toolButton" data-tool="stamp" type="button">Stamp</button>
+            </div>
+            <div id="stampActions" class="buttons stampActions hidden">
+              <button id="newStampBtn" type="button">New stamp</button>
+              <span id="stampStatus" class="muted">No stamp</span>
+            </div>
+
+            <div id="palettePanel" class="controls">
+              <div class="paletteGrid" id="paletteGrid"></div>
+              <label>
+                Selected index
+                <input id="selectedPaletteIndex" type="number" min="0" max="3" step="1" value="1" />
+              </label>
+            </div>
+
+            <div id="directPaintPanel" class="hidden"></div>
+
+            <div class="colorPicker">
+              <div class="muted">Color</div>
+              <div class="colorEditor">
+                <div id="colorPreview" class="colorPreview"></div>
+                <label>
+                  Hex
+                  <input id="colorHex" type="text" value="#ffffff" spellcheck="false" />
+                </label>
+              </div>
+              <div class="colorSliders">
+                <label>
+                  Hue
+                  <input id="colorHue" type="range" min="0" max="359" step="1" value="0" />
+                </label>
+                <label>
+                  Saturation
+                  <input id="colorSaturation" type="range" min="0" max="100" step="1" value="0" />
+                </label>
+                <label>
+                  Brightness
+                  <input id="colorValue" type="range" min="0" max="100" step="1" value="100" />
+                </label>
+              </div>
+              <div id="colorChoices" class="colorChoices"></div>
+              <div class="buttons">
+                <button id="saveColorBtn" type="button">Save swatch</button>
+                <button id="resetColorsBtn" type="button">Reset swatches</button>
+              </div>
+              <input id="basePaletteColor" type="hidden" value="#ffffff" />
+              <input id="framePaletteColor" type="hidden" value="#ffffff" />
+              <input id="directPaintColor" type="hidden" value="#ffffff" />
+            </div>
+
+            <details id="updatesPanel" class="compactDetails">
+              <summary>Palette changes</summary>
+              <div class="detailsBody controls">
+                <div id="paletteUpdates" class="updates"></div>
+                <div class="buttons">
+                  <button id="addUpdateBtn" type="button">Add update</button>
+                </div>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <details class="panel">
+          <summary>Setup</summary>
+          <div class="detailsBody controls">
+            <div class="row three">
+              <label>
+                Width
+                <input id="widthByte" type="number" min="0" max="255" step="1" value="16" />
+              </label>
+              <label>
+                Height
+                <input id="heightByte" type="number" min="0" max="255" step="1" value="16" />
+              </label>
+              <label>
+                BPP
+                <select id="bpp">
+                  <option value="0">0 RGB</option>
+                  <option value="1">1 indexed</option>
+                  <option value="2" selected>2 indexed</option>
+                  <option value="3">3 indexed</option>
+                  <option value="4">4 indexed</option>
+                  <option value="5">5 indexed</option>
+                  <option value="6">6 indexed</option>
+                  <option value="7">7 indexed</option>
+                  <option value="8">8 indexed</option>
+                </select>
+              </label>
+            </div>
+            <div class="buttons">
+              <button id="applyGridBtn" class="primary" type="button">Apply grid</button>
+            </div>
+            <div class="row">
+              <label>
+                Brightness limit %
+                <input id="brightnessLimit" type="number" min="0" max="100" step="1" value="15" />
+              </label>
+              <label class="check">
+                <input id="ledColorProfile" type="checkbox" checked />
+                WS2812-aware matching
+              </label>
+            </div>
+            <div class="stats">
+              <div class="stat"><span class="k">Grid</span><span class="v" id="actualGrid">16 x 16</span></div>
+              <div class="stat"><span class="k">Pixels</span><span class="v" id="pixelCount">256</span></div>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section class="stack">
+        <section class="panel">
+          <div class="animationHeader">
+            <div>
+              <h2>Animation</h2>
+              <div class="muted" id="framePosition">Frame 1 of 1</div>
+            </div>
+            <label>
+              Desired FPS
+              <input id="targetFps" type="number" min="0.1" max="60" step="0.1" value="6" />
+            </label>
+          </div>
+          <div class="frameBar">
+            <label>
+              Frame
+              <select id="frameSelect"></select>
+            </label>
+            <div class="buttons">
+              <button id="prevFrameBtn" type="button">Prev</button>
+              <button id="nextFrameBtn" type="button">Next</button>
+              <button id="addFrameBtn" type="button">Add</button>
+              <button id="duplicateFrameBtn" type="button">Duplicate</button>
+              <button id="clearFrameBtn" class="warn" type="button">Clear</button>
+              <button id="deleteFrameBtn" class="danger" type="button">Delete</button>
+              <button id="previewAnimationBtn" class="primary" type="button">Preview</button>
+            </div>
+          </div>
+          <div class="canvasShell">
+            <canvas id="gridCanvas" width="720" height="720"></canvas>
+          </div>
+          <div id="frameStrip" class="frameStrip"></div>
+        </section>
+      </section>
+
+      <section class="stack right">
+        <section class="panel">
+          <h2>Output</h2>
+          <div class="controls">
+            <div class="buttons">
+              <button id="generateBtn" class="primary" type="button">Generate audio</button>
+              <button id="playBtn" type="button">Play / pause</button>
+              <button id="downloadBtn" type="button">Download WAV</button>
+            </div>
+            <audio id="player" controls></audio>
+            <div class="stats">
+              <div class="stat"><span class="k">Frames</span><span class="v" id="frameCount">1</span></div>
+              <div class="stat"><span class="k">Target FPS</span><span class="v" id="targetFpsStat">6</span></div>
+              <div class="stat"><span class="k">Actual FPS</span><span class="v" id="actualFps">0</span></div>
+              <div class="stat"><span class="k">Data rate</span><span class="v" id="dataRateUsed">0 bps</span></div>
+              <div class="stat"><span class="k">Duration</span><span class="v" id="duration">0 s</span></div>
+              <div class="stat"><span class="k">Signal bits</span><span class="v" id="totalBits">0</span></div>
+            </div>
+          </div>
+        </section>
+
+        <details class="panel">
+          <summary>Signal setup</summary>
+          <div class="detailsBody controls">
+            <div class="row">
+              <label>
+                Max data rate
+                <input id="bitRate" type="number" min="1" step="1" value="5000" />
+              </label>
+              <label>
+                Sample rate
+                <input id="sampleRate" type="number" min="8000" step="1000" value="44100" />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Amplitude
+                <input id="amplitude" type="number" min="0.01" max="1" step="0.01" value="1" />
+              </label>
+              <label>
+                Channel layout
+                <select id="channelLayout">
+                  <option value="data-right" selected>Audio left / data right</option>
+                  <option value="data-left">Data left / audio right</option>
+                  <option value="mono">Mono data</option>
+                </select>
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Convention
+                <select id="convention">
+                  <option value="ieee">IEEE 802.3</option>
+                  <option value="thomas">Thomas / reverse</option>
+                </select>
+              </label>
+              <label class="check">
+                <input id="smoothEdges" type="checkbox" checked />
+                Smooth edges
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Start silence ms
+                <input id="startSilence" type="number" min="0" step="10" value="0" />
+              </label>
+              <label>
+                End silence ms
+                <input id="endSilence" type="number" min="0" step="10" value="0" />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Preamble 0x55 bytes
+                <input id="preambleCount" type="number" min="0" step="1" value="16" />
+              </label>
+              <label class="check">
+                <input id="includeSync" type="checkbox" checked />
+                Sync byte 0xD5
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Resync every N frames
+                <input id="resyncEveryFrames" type="number" min="0" step="1" value="2" />
+              </label>
+              <label>
+                Resync guard bits
+                <input id="resyncGuardBits" type="number" min="2" step="1" value="8" />
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary>Project JSON</summary>
+          <div class="detailsBody controls">
+            <textarea id="projectJson"></textarea>
+            <div class="buttons">
+              <button id="exportJsonBtn" type="button">Export JSON</button>
+              <button id="loadJsonBtn" type="button">Load JSON</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary>Signal details</summary>
+          <div class="detailsBody controls">
+            <div class="stats">
+              <div class="stat"><span class="k">Protocol bits</span><span class="v" id="protocolBits">0</span></div>
+              <div class="stat"><span class="k">Tail bits</span><span class="v" id="tailBits">0</span></div>
+              <div class="stat"><span class="k">Samples</span><span class="v" id="sampleCount">0</span></div>
+            </div>
+            <canvas id="waveCanvas" width="900" height="240"></canvas>
+            <pre id="preview">Nothing generated yet.</pre>
+          </div>
+        </details>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const MAX_GRID_PIXELS = 16384;
+    const COLOR_PRESETS = [
+      '#000000',
+      '#202020',
+      '#404040',
+      '#808080',
+      '#c0c0c0',
+      '#ffffff',
+      '#ff2020',
+      '#ff6a00',
+      '#ffb000',
+      '#ffe63d',
+      '#7cff2f',
+      '#18d84f',
+      '#00c780',
+      '#00d4ff',
+      '#1685ff',
+      '#2f45ff',
+      '#7a4dff',
+      '#bf35ff',
+      '#ff37cb',
+      '#ff5f91',
+      '#ff9cc6',
+      '#9bffce',
+      '#87d8ff',
+      '#b6b0ff',
+      '#ffb36b',
+      '#b86a2a',
+      '#6b3a18',
+      '#132b18',
+      '#10263d',
+      '#321445',
+    ];
+
+    const el = {
+      status: document.getElementById('status'),
+      paintToolBtn: document.getElementById('paintToolBtn'),
+      eraseToolBtn: document.getElementById('eraseToolBtn'),
+      fillToolBtn: document.getElementById('fillToolBtn'),
+      stampToolBtn: document.getElementById('stampToolBtn'),
+      stampActions: document.getElementById('stampActions'),
+      newStampBtn: document.getElementById('newStampBtn'),
+      stampStatus: document.getElementById('stampStatus'),
+      widthByte: document.getElementById('widthByte'),
+      heightByte: document.getElementById('heightByte'),
+      bpp: document.getElementById('bpp'),
+      applyGridBtn: document.getElementById('applyGridBtn'),
+      brightnessLimit: document.getElementById('brightnessLimit'),
+      ledColorProfile: document.getElementById('ledColorProfile'),
+      actualGrid: document.getElementById('actualGrid'),
+      pixelCount: document.getElementById('pixelCount'),
+      palettePanel: document.getElementById('palettePanel'),
+      paletteGrid: document.getElementById('paletteGrid'),
+      basePaletteColor: document.getElementById('basePaletteColor'),
+      framePaletteColor: document.getElementById('framePaletteColor'),
+      selectedPaletteIndex: document.getElementById('selectedPaletteIndex'),
+      directPaintPanel: document.getElementById('directPaintPanel'),
+      directPaintColor: document.getElementById('directPaintColor'),
+      colorPreview: document.getElementById('colorPreview'),
+      colorHex: document.getElementById('colorHex'),
+      colorHue: document.getElementById('colorHue'),
+      colorSaturation: document.getElementById('colorSaturation'),
+      colorValue: document.getElementById('colorValue'),
+      colorChoices: document.getElementById('colorChoices'),
+      saveColorBtn: document.getElementById('saveColorBtn'),
+      resetColorsBtn: document.getElementById('resetColorsBtn'),
+      updatesPanel: document.getElementById('updatesPanel'),
+      paletteUpdates: document.getElementById('paletteUpdates'),
+      addUpdateBtn: document.getElementById('addUpdateBtn'),
+      frameSelect: document.getElementById('frameSelect'),
+      framePosition: document.getElementById('framePosition'),
+      frameStrip: document.getElementById('frameStrip'),
+      prevFrameBtn: document.getElementById('prevFrameBtn'),
+      nextFrameBtn: document.getElementById('nextFrameBtn'),
+      addFrameBtn: document.getElementById('addFrameBtn'),
+      duplicateFrameBtn: document.getElementById('duplicateFrameBtn'),
+      clearFrameBtn: document.getElementById('clearFrameBtn'),
+      deleteFrameBtn: document.getElementById('deleteFrameBtn'),
+      previewAnimationBtn: document.getElementById('previewAnimationBtn'),
+      gridCanvas: document.getElementById('gridCanvas'),
+      projectJson: document.getElementById('projectJson'),
+      exportJsonBtn: document.getElementById('exportJsonBtn'),
+      loadJsonBtn: document.getElementById('loadJsonBtn'),
+      targetFps: document.getElementById('targetFps'),
+      bitRate: document.getElementById('bitRate'),
+      sampleRate: document.getElementById('sampleRate'),
+      amplitude: document.getElementById('amplitude'),
+      channelLayout: document.getElementById('channelLayout'),
+      convention: document.getElementById('convention'),
+      startSilence: document.getElementById('startSilence'),
+      endSilence: document.getElementById('endSilence'),
+      preambleCount: document.getElementById('preambleCount'),
+      includeSync: document.getElementById('includeSync'),
+      resyncEveryFrames: document.getElementById('resyncEveryFrames'),
+      resyncGuardBits: document.getElementById('resyncGuardBits'),
+      smoothEdges: document.getElementById('smoothEdges'),
+      generateBtn: document.getElementById('generateBtn'),
+      playBtn: document.getElementById('playBtn'),
+      downloadBtn: document.getElementById('downloadBtn'),
+      player: document.getElementById('player'),
+      frameCount: document.getElementById('frameCount'),
+      targetFpsStat: document.getElementById('targetFpsStat'),
+      actualFps: document.getElementById('actualFps'),
+      dataRateUsed: document.getElementById('dataRateUsed'),
+      protocolBits: document.getElementById('protocolBits'),
+      tailBits: document.getElementById('tailBits'),
+      totalBits: document.getElementById('totalBits'),
+      duration: document.getElementById('duration'),
+      sampleCount: document.getElementById('sampleCount'),
+      waveCanvas: document.getElementById('waveCanvas'),
+      preview: document.getElementById('preview'),
+    };
+
+    const state = {
+      widthByte: 16,
+      heightByte: 16,
+      bpp: 2,
+      palette: [],
+      frames: [],
+      currentFrame: 0,
+      selectedPaletteIndex: 1,
+      directPaintColor: { r: 255, g: 255, b: 255 },
+      colorPresets: COLOR_PRESETS.map(hex => hexToRgb(hex)),
+      selectedColorPreset: -1,
+      stamp: null,
+      stampSelection: null,
+      stampHover: null,
+      tool: 'paint',
+    };
+
+    let currentBlobUrl = null;
+    let currentBlob = null;
+    let currentMeta = null;
+    let painting = false;
+    let selectingStamp = false;
+    let activePaintTool = 'paint';
+    let previewTimer = null;
+
+    function setStatus(message, type = '') {
+      el.status.textContent = message;
+      el.status.className = `status ${type}`.trim();
+    }
+
+    function clamp(v, lo, hi) {
+      return Math.max(lo, Math.min(hi, v));
+    }
+
+    function clampInt(value, lo, hi, fallback) {
+      const parsed = parseInt(value, 10);
+      if (!Number.isFinite(parsed)) return fallback;
+      return clamp(parsed, lo, hi);
+    }
+
+    function readPositiveNumber(input, fallback) {
+      const parsed = parseFloat(input.value);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    }
+
+    function targetFpsValue() {
+      return clamp(readPositiveNumber(el.targetFps, 6), 0.1, 60);
+    }
+
+    function maxBitRateValue() {
+      return Math.max(1, readPositiveNumber(el.bitRate, 5000));
+    }
+
+    function formatFps(value) {
+      if (!Number.isFinite(value) || value <= 0) return '0';
+      const fixed = value >= 10 ? value.toFixed(1) : value.toFixed(2);
+      return fixed.replace(/\.?0+$/, '');
+    }
+
+    function formatDataRate(bitsPerSecond) {
+      if (!Number.isFinite(bitsPerSecond) || bitsPerSecond <= 0) return '0 bps';
+      if (bitsPerSecond >= 1000) return `${(bitsPerSecond / 1000).toFixed(2).replace(/\.?0+$/, '')} kbps`;
+      return `${bitsPerSecond.toFixed(0)} bps`;
+    }
+
+    function actualDim(byteValue) {
+      return byteValue === 0 ? 1 : byteValue;
+    }
+
+    function actualWidth() {
+      return actualDim(state.widthByte);
+    }
+
+    function actualHeight() {
+      return actualDim(state.heightByte);
+    }
+
+    function pixelCount() {
+      return actualWidth() * actualHeight();
+    }
+
+    function paletteCount() {
+      return state.bpp > 0 ? (1 << state.bpp) : 0;
+    }
+
+    function copyRgb(color) {
+      return { r: color.r & 255, g: color.g & 255, b: color.b & 255 };
+    }
+
+    function clampByte(value) {
+      return clamp(Math.round(value), 0, 255);
+    }
+
+    function brightnessLimitPercent() {
+      const parsed = parseFloat(el.brightnessLimit.value);
+      return clamp(Number.isFinite(parsed) ? parsed : 100, 0, 100);
+    }
+
+    function ledColorProfileEnabled() {
+      return Boolean(el.ledColorProfile && el.ledColorProfile.checked);
+    }
+
+    function rgbToHsv(color) {
+      const r = clamp(color.r, 0, 255) / 255;
+      const g = clamp(color.g, 0, 255) / 255;
+      const b = clamp(color.b, 0, 255) / 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const delta = max - min;
+      let h = 0;
+
+      if (delta > 0) {
+        if (max === r) {
+          h = 60 * (((g - b) / delta) % 6);
+        } else if (max === g) {
+          h = 60 * ((b - r) / delta + 2);
+        } else {
+          h = 60 * ((r - g) / delta + 4);
+        }
+      }
+
+      if (h < 0) h += 360;
+      return {
+        h,
+        s: max === 0 ? 0 : delta / max,
+        v: max,
+      };
+    }
+
+    function hsvToRgb(h, s, v) {
+      const c = v * s;
+      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+      const m = v - c;
+      let r = 0;
+      let g = 0;
+      let b = 0;
+
+      if (h < 60) {
+        r = c; g = x;
+      } else if (h < 120) {
+        r = x; g = c;
+      } else if (h < 180) {
+        g = c; b = x;
+      } else if (h < 240) {
+        g = x; b = c;
+      } else if (h < 300) {
+        r = x; b = c;
+      } else {
+        r = c; b = x;
+      }
+
+      return {
+        r: clampByte((r + m) * 255),
+        g: clampByte((g + m) * 255),
+        b: clampByte((b + m) * 255),
+      };
+    }
+
+    function shapeRgbForWs2812(color) {
+      const hsv = rgbToHsv(color);
+      if (hsv.v < 0.035) {
+        return { r: 0, g: 0, b: 0 };
+      }
+
+      if (hsv.s < 0.12) {
+        if (hsv.v < 0.42) {
+          return { r: 0, g: 0, b: 0 };
+        }
+
+        const white = clampByte(Math.pow(hsv.v, 0.78) * 255);
+        return { r: white, g: white, b: white };
+      }
+
+      let s = clamp(hsv.s + (1 - hsv.s) * 0.55, 0, 1);
+      let v = clamp(Math.pow(hsv.v, 0.78), 0, 1);
+
+      if (hsv.h >= 18 && hsv.h <= 62 && hsv.v < 0.58) {
+        s = Math.max(s, 0.9);
+        v = Math.max(v, 0.58);
+      }
+
+      const shaped = hsvToRgb(hsv.h, s, v);
+      return {
+        r: clampByte(shaped.r * 1.06),
+        g: clampByte(shaped.g * 0.76),
+        b: clampByte(shaped.b * 0.96),
+      };
+    }
+
+    function quantizeProfileChannel(value, scale) {
+      const scaled = value * scale;
+      if (scaled < 1.15) {
+        return 0;
+      }
+
+      const maxOut = 255 * scale;
+      const step = maxOut <= 40 ? 2 : 1;
+      return clampByte(Math.round(scaled / step) * step);
+    }
+
+    function limitRgb(color) {
+      const scale = brightnessLimitPercent() / 100;
+      if (scale >= 0.999) return copyRgb(color);
+
+      return {
+        r: clampByte(color.r * scale),
+        g: clampByte(color.g * scale),
+        b: clampByte(color.b * scale),
+      };
+    }
+
+    function simulatedLedRgb(color) {
+      if (!ledColorProfileEnabled()) {
+        return limitRgb(color);
+      }
+
+      const scale = brightnessLimitPercent() / 100;
+      const shaped = shapeRgbForWs2812(color);
+      return {
+        r: quantizeProfileChannel(shaped.r, scale),
+        g: quantizeProfileChannel(shaped.g, scale),
+        b: quantizeProfileChannel(shaped.b, scale),
+      };
+    }
+
+    function ledOutputDistance(a, b) {
+      const aa = simulatedLedRgb(a);
+      const bb = simulatedLedRgb(b);
+      const dr = aa.r - bb.r;
+      const dg = aa.g - bb.g;
+      const db = aa.b - bb.b;
+      return dr * dr * 2 + dg * dg * 3 + db * db * 2;
+    }
+
+    function rgbToHex(color) {
+      const r = color.r.toString(16).padStart(2, '0');
+      const g = color.g.toString(16).padStart(2, '0');
+      const b = color.b.toString(16).padStart(2, '0');
+      return `#${r}${g}${b}`;
+    }
+
+    function hexToRgb(hex) {
+      const cleaned = String(hex || '').trim().replace(/^#/, '');
+      if (!/^[0-9a-fA-F]{6}$/.test(cleaned)) {
+        return { r: 0, g: 0, b: 0 };
+      }
+
+      return {
+        r: parseInt(cleaned.slice(0, 2), 16),
+        g: parseInt(cleaned.slice(2, 4), 16),
+        b: parseInt(cleaned.slice(4, 6), 16),
+      };
+    }
+
+    function normalizeHexColor(value) {
+      const cleaned = String(value || '').trim().replace(/^#/, '');
+      if (!/^[0-9a-fA-F]{6}$/.test(cleaned)) {
+        return null;
+      }
+
+      return `#${cleaned.toLowerCase()}`;
+    }
+
+    function rgbToHsv(color) {
+      const r = color.r / 255;
+      const g = color.g / 255;
+      const b = color.b / 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const delta = max - min;
+      let h = 0;
+
+      if (delta !== 0) {
+        if (max === r) {
+          h = 60 * (((g - b) / delta) % 6);
+        } else if (max === g) {
+          h = 60 * ((b - r) / delta + 2);
+        } else {
+          h = 60 * ((r - g) / delta + 4);
+        }
+      }
+
+      if (h < 0) h += 360;
+
+      return {
+        h: Math.round(h),
+        s: max === 0 ? 0 : Math.round((delta / max) * 100),
+        v: Math.round(max * 100),
+      };
+    }
+
+    function hsvToRgb(h, s, v) {
+      const hue = ((h % 360) + 360) % 360;
+      const sat = clamp(s, 0, 100) / 100;
+      const val = clamp(v, 0, 100) / 100;
+      const c = val * sat;
+      const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+      const m = val - c;
+      let r1 = 0;
+      let g1 = 0;
+      let b1 = 0;
+
+      if (hue < 60) {
+        r1 = c; g1 = x;
+      } else if (hue < 120) {
+        r1 = x; g1 = c;
+      } else if (hue < 180) {
+        g1 = c; b1 = x;
+      } else if (hue < 240) {
+        g1 = x; b1 = c;
+      } else if (hue < 300) {
+        r1 = x; b1 = c;
+      } else {
+        r1 = c; b1 = x;
+      }
+
+      return {
+        r: clampByte((r1 + m) * 255),
+        g: clampByte((g1 + m) * 255),
+        b: clampByte((b1 + m) * 255),
+      };
+    }
+
+    function hslToRgb(h, s, l) {
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const hp = h / 60;
+      const x = c * (1 - Math.abs((hp % 2) - 1));
+      let r1 = 0;
+      let g1 = 0;
+      let b1 = 0;
+
+      if (hp >= 0 && hp < 1) {
+        r1 = c; g1 = x;
+      } else if (hp < 2) {
+        r1 = x; g1 = c;
+      } else if (hp < 3) {
+        g1 = c; b1 = x;
+      } else if (hp < 4) {
+        g1 = x; b1 = c;
+      } else if (hp < 5) {
+        r1 = x; b1 = c;
+      } else {
+        r1 = c; b1 = x;
+      }
+
+      const m = l - c / 2;
+      return {
+        r: Math.round((r1 + m) * 255),
+        g: Math.round((g1 + m) * 255),
+        b: Math.round((b1 + m) * 255),
+      };
+    }
+
+    function defaultPaletteEntry(index, count) {
+      if (index === 0) return { r: 0, g: 0, b: 0 };
+      if (count === 2) return { r: 255, g: 255, b: 255 };
+      const hue = ((index - 1) * 300) / Math.max(1, count - 1);
+      return hslToRgb(hue, 0.78, 0.55);
+    }
+
+    function ensurePaletteSize() {
+      const count = paletteCount();
+      if (count === 0) return;
+
+      while (state.palette.length < count) {
+        state.palette.push(defaultPaletteEntry(state.palette.length, count));
+      }
+
+      if (state.palette.length > count) {
+        state.palette.length = count;
+      }
+
+      state.selectedPaletteIndex = clamp(state.selectedPaletteIndex, 0, count - 1);
+    }
+
+    function blankFrame() {
+      const n = pixelCount();
+      return {
+        pixels: Array(n).fill(0),
+        colors: Array.from({ length: n }, () => ({ r: 0, g: 0, b: 0 })),
+        paletteUpdates: [],
+      };
+    }
+
+    function resizeIndexedPixels(oldPixels, oldW, oldH, newW, newH) {
+      const out = Array(newW * newH).fill(0);
+      const copyW = Math.min(oldW, newW);
+      const copyH = Math.min(oldH, newH);
+
+      for (let y = 0; y < copyH; y++) {
+        for (let x = 0; x < copyW; x++) {
+          out[y * newW + x] = oldPixels[y * oldW + x] || 0;
+        }
+      }
+
+      return out;
+    }
+
+    function resizeRgbPixels(oldColors, oldW, oldH, newW, newH) {
+      const out = Array.from({ length: newW * newH }, () => ({ r: 0, g: 0, b: 0 }));
+      const copyW = Math.min(oldW, newW);
+      const copyH = Math.min(oldH, newH);
+
+      for (let y = 0; y < copyH; y++) {
+        for (let x = 0; x < copyW; x++) {
+          const source = oldColors[y * oldW + x] || { r: 0, g: 0, b: 0 };
+          out[y * newW + x] = copyRgb(source);
+        }
+      }
+
+      return out;
+    }
+
+    function normalizeFrames() {
+      if (state.frames.length === 0) {
+        state.frames.push(blankFrame());
+      }
+
+      const n = pixelCount();
+      const maxIndex = Math.max(0, paletteCount() - 1);
+
+      for (const frame of state.frames) {
+        if (!Array.isArray(frame.pixels)) frame.pixels = [];
+        if (!Array.isArray(frame.colors)) frame.colors = [];
+        if (!Array.isArray(frame.paletteUpdates)) frame.paletteUpdates = [];
+
+        while (frame.pixels.length < n) frame.pixels.push(0);
+        if (frame.pixels.length > n) frame.pixels.length = n;
+        frame.pixels = frame.pixels.map(v => clampInt(v, 0, maxIndex, 0));
+
+        while (frame.colors.length < n) frame.colors.push({ r: 0, g: 0, b: 0 });
+        if (frame.colors.length > n) frame.colors.length = n;
+        frame.colors = frame.colors.map(copyRgb);
+
+        const sourceUpdates = frame.paletteUpdates.slice(0, 255);
+        frame.paletteUpdates.length = 0;
+
+        for (const update of sourceUpdates) {
+          update.index = clampInt(update.index, 0, maxIndex, 0);
+          update.color = copyRgb(update.color || { r: 0, g: 0, b: 0 });
+
+          const duplicateIndex = frame.paletteUpdates.findIndex(candidate => candidate.index === update.index);
+          if (duplicateIndex >= 0) {
+            frame.paletteUpdates[duplicateIndex].color = copyRgb(update.color);
+          } else {
+            frame.paletteUpdates.push(update);
+          }
+        }
+      }
+
+      state.currentFrame = clamp(state.currentFrame, 0, state.frames.length - 1);
+    }
+
+    function currentFrame() {
+      normalizeFrames();
+      return state.frames[state.currentFrame];
+    }
+
+    function syncSelectedPaletteIndexFromInput() {
+      if (state.bpp === 0) {
+        return 0;
+      }
+
+      state.selectedPaletteIndex = clampInt(
+        el.selectedPaletteIndex.value,
+        0,
+        paletteCount() - 1,
+        state.selectedPaletteIndex
+      );
+      return state.selectedPaletteIndex;
+    }
+
+    function paletteForFrame(frameIndex) {
+      const count = paletteCount();
+      const palette = state.palette.slice(0, count).map(copyRgb);
+
+      for (let i = 0; i <= frameIndex && i < state.frames.length; i++) {
+        for (const update of state.frames[i].paletteUpdates || []) {
+          if (update.index >= 0 && update.index < count) {
+            palette[update.index] = copyRgb(update.color);
+          }
+        }
+      }
+
+      return palette;
+    }
+
+    function findPaletteUpdate(frame, index) {
+      return frame.paletteUpdates.find(update => update.index === index);
+    }
+
+    function setCurrentFramePaletteColor(index, color, renderUpdates = true) {
+      if (state.bpp === 0) return;
+
+      const frame = currentFrame();
+      const boundedIndex = clampInt(index, 0, paletteCount() - 1, 0);
+      const existing = findPaletteUpdate(frame, boundedIndex);
+
+      if (existing) {
+        existing.color = copyRgb(color);
+      } else if (frame.paletteUpdates.length < 255) {
+        frame.paletteUpdates.push({
+          index: boundedIndex,
+          color: copyRgb(color),
+        });
+      } else {
+        setStatus('A frame can encode at most 255 palette updates.', 'error');
+        return;
+      }
+
+      drawGrid();
+      renderPalette();
+      renderColorEditor();
+      renderColorChoices();
+      renderFrameStrip();
+      renderStats();
+      if (renderUpdates) {
+        renderPaletteUpdates();
+      }
+    }
+
+    function nearestPaletteIndex(color, palette) {
+      let bestIndex = 0;
+      let bestDistance = Infinity;
+
+      for (let i = 0; i < palette.length; i++) {
+        const distance = ledOutputDistance(color, palette[i]);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = i;
+        }
+      }
+
+      return bestIndex;
+    }
+
+    function applyGrid() {
+      stopAnimationPreview();
+      const oldW = actualWidth();
+      const oldH = actualHeight();
+      const newWidthByte = clampInt(el.widthByte.value, 0, 255, state.widthByte);
+      const newHeightByte = clampInt(el.heightByte.value, 0, 255, state.heightByte);
+      const newW = actualDim(newWidthByte);
+      const newH = actualDim(newHeightByte);
+
+      if (newW * newH > MAX_GRID_PIXELS) {
+        el.widthByte.value = state.widthByte;
+        el.heightByte.value = state.heightByte;
+        setStatus(`Grid is too large. Max is ${MAX_GRID_PIXELS} pixels.`, 'error');
+        return;
+      }
+
+      state.widthByte = newWidthByte;
+      state.heightByte = newHeightByte;
+      discardStampState();
+
+      for (const frame of state.frames) {
+        frame.pixels = resizeIndexedPixels(frame.pixels || [], oldW, oldH, newW, newH);
+        frame.colors = resizeRgbPixels(frame.colors || [], oldW, oldH, newW, newH);
+      }
+
+      normalizeFrames();
+      renderAll();
+      setStatus('Grid updated.', 'ok');
+    }
+
+    function applyBpp() {
+      stopAnimationPreview();
+      const nextBpp = clampInt(el.bpp.value, 0, 8, state.bpp);
+      if (nextBpp === state.bpp) return;
+
+      const oldBpp = state.bpp;
+      discardStampState();
+
+      if (oldBpp > 0 && nextBpp === 0) {
+        for (let i = 0; i < state.frames.length; i++) {
+          const palette = paletteForFrame(i);
+          state.frames[i].colors = state.frames[i].pixels.map(index => copyRgb(palette[index] || { r: 0, g: 0, b: 0 }));
+        }
+      }
+
+      state.bpp = nextBpp;
+      ensurePaletteSize();
+
+      if (oldBpp === 0 && nextBpp > 0) {
+        const palette = state.palette.slice(0, paletteCount());
+        for (const frame of state.frames) {
+          frame.pixels = frame.colors.map(color => nearestPaletteIndex(color, palette));
+        }
+      }
+
+      normalizeFrames();
+      renderAll();
+      setStatus('BPP updated.', 'ok');
+    }
+
+    function renderFrameSelect() {
+      el.frameSelect.innerHTML = '';
+
+      state.frames.forEach((_, index) => {
+        const option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = `Frame ${index + 1}`;
+        el.frameSelect.appendChild(option);
+      });
+
+      el.frameSelect.value = String(state.currentFrame);
+      el.deleteFrameBtn.disabled = state.frames.length <= 1;
+      el.prevFrameBtn.disabled = state.currentFrame <= 0;
+      el.nextFrameBtn.disabled = state.currentFrame >= state.frames.length - 1;
+      el.framePosition.textContent = `Frame ${state.currentFrame + 1} of ${state.frames.length}`;
+    }
+
+    function renderToolButtons() {
+      const buttons = [el.paintToolBtn, el.eraseToolBtn, el.fillToolBtn, el.stampToolBtn];
+      for (const button of buttons) {
+        button.classList.toggle('selected', button.dataset.tool === state.tool);
+      }
+
+      el.stampActions.classList.toggle('hidden', state.tool !== 'stamp');
+      el.stampStatus.textContent = state.stamp ? `Stamp ${state.stamp.w} x ${state.stamp.h}` : 'No stamp';
+    }
+
+    function drawFrameThumbnail(canvas, frameIndex) {
+      const ctx = canvas.getContext('2d');
+      const w = actualWidth();
+      const h = actualHeight();
+      const frame = state.frames[frameIndex];
+      const palette = state.bpp > 0 ? paletteForFrame(frameIndex) : null;
+      const scale = Math.max(1, Math.floor(Math.min(canvas.width / w, canvas.height / h)));
+      const gridW = scale * w;
+      const gridH = scale * h;
+      const ox = Math.floor((canvas.width - gridW) / 2);
+      const oy = Math.floor((canvas.height - gridH) / 2);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0b0c0d';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const pixelIndex = y * w + x;
+          const color = state.bpp > 0
+            ? palette[frame.pixels[pixelIndex]] || { r: 0, g: 0, b: 0 }
+            : frame.colors[pixelIndex] || { r: 0, g: 0, b: 0 };
+          ctx.fillStyle = rgbToHex(color);
+          ctx.fillRect(ox + x * scale, oy + y * scale, scale, scale);
+        }
+      }
+    }
+
+    function renderFrameStrip() {
+      el.frameStrip.innerHTML = '';
+
+      state.frames.forEach((_, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `frameThumb ${index === state.currentFrame ? 'selected' : ''}`;
+        button.title = `Frame ${index + 1}`;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 56;
+        canvas.height = 56;
+        drawFrameThumbnail(canvas, index);
+
+        const label = document.createElement('span');
+        label.textContent = String(index + 1);
+
+        button.appendChild(canvas);
+        button.appendChild(label);
+        button.addEventListener('click', () => {
+          state.currentFrame = index;
+          stopAnimationPreview();
+          renderAll();
+        });
+
+        el.frameStrip.appendChild(button);
+      });
+    }
+
+    function selectedPickerColor() {
+      if (state.bpp > 0) {
+        const palette = paletteForFrame(state.currentFrame);
+        return palette[state.selectedPaletteIndex] || { r: 0, g: 0, b: 0 };
+      }
+
+      return state.directPaintColor;
+    }
+
+    function applyColorChoice(color, presetIndex = -1) {
+      applyPickerColor(color, presetIndex);
+    }
+
+    function applyPickerColor(color, presetIndex = -1) {
+      state.selectedColorPreset = presetIndex;
+      if (state.bpp > 0) {
+        const index = syncSelectedPaletteIndexFromInput();
+        setCurrentFramePaletteColor(index, color);
+        return;
+      }
+
+      state.directPaintColor = copyRgb(color);
+      syncInputsFromState();
+      drawGrid();
+      renderFrameStrip();
+      renderColorEditor();
+      renderColorChoices();
+    }
+
+    function colorFromEditorInputs() {
+      return hsvToRgb(
+        parseInt(el.colorHue.value, 10) || 0,
+        parseInt(el.colorSaturation.value, 10) || 0,
+        parseInt(el.colorValue.value, 10) || 0
+      );
+    }
+
+    function renderColorEditor() {
+      const selected = selectedPickerColor();
+      const hex = rgbToHex(selected);
+      const hsv = rgbToHsv(selected);
+
+      el.colorPreview.style.background = hex;
+      el.colorHex.value = hex;
+      el.colorHue.value = String(hsv.h);
+      el.colorSaturation.value = String(hsv.s);
+      el.colorValue.value = String(hsv.v);
+      el.basePaletteColor.value = state.bpp > 0
+        ? rgbToHex(state.palette[state.selectedPaletteIndex] || { r: 0, g: 0, b: 0 })
+        : '#000000';
+      el.framePaletteColor.value = state.bpp > 0 ? hex : '#000000';
+      el.directPaintColor.value = rgbToHex(state.directPaintColor);
+    }
+
+    function renderColorChoices() {
+      const selected = selectedPickerColor();
+      el.colorChoices.innerHTML = '';
+
+      state.colorPresets.forEach((color, index) => {
+        const hex = rgbToHex(color);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `colorChoice ${colorsEqual(color, selected) ? 'selected' : ''}`;
+        button.style.background = hex;
+        button.title = hex.toUpperCase();
+        button.setAttribute('aria-label', `Use color ${hex.toUpperCase()}`);
+        button.addEventListener('click', () => applyColorChoice(color, index));
+        el.colorChoices.appendChild(button);
+      });
+    }
+
+    function saveCurrentColorToPresets() {
+      const color = copyRgb(selectedPickerColor());
+      const existingIndex = state.colorPresets.findIndex(candidate => colorsEqual(candidate, color));
+
+      if (existingIndex >= 0) {
+        state.selectedColorPreset = existingIndex;
+      } else if (state.selectedColorPreset >= 0 && state.selectedColorPreset < state.colorPresets.length) {
+        state.colorPresets[state.selectedColorPreset] = color;
+      } else {
+        state.colorPresets.push(color);
+        state.selectedColorPreset = state.colorPresets.length - 1;
+      }
+
+      renderColorChoices();
+      setStatus('Swatch saved.', 'ok');
+    }
+
+    function resetColorPresets() {
+      state.colorPresets = COLOR_PRESETS.map(hex => hexToRgb(hex));
+      state.selectedColorPreset = -1;
+      renderColorChoices();
+      setStatus('Swatches reset.', 'ok');
+    }
+
+    function renderPalette() {
+      const indexed = state.bpp > 0;
+      el.palettePanel.classList.toggle('hidden', !indexed);
+      el.directPaintPanel.classList.toggle('hidden', indexed);
+      el.updatesPanel.classList.toggle('hidden', !indexed);
+
+      if (!indexed) {
+        return;
+      }
+
+      const effectivePalette = paletteForFrame(state.currentFrame);
+      const count = paletteCount();
+      el.paletteGrid.innerHTML = '';
+      el.selectedPaletteIndex.max = String(Math.max(0, count - 1));
+      el.selectedPaletteIndex.value = String(state.selectedPaletteIndex);
+      el.basePaletteColor.value = rgbToHex(state.palette[state.selectedPaletteIndex] || { r: 0, g: 0, b: 0 });
+      el.framePaletteColor.value = rgbToHex(effectivePalette[state.selectedPaletteIndex] || { r: 0, g: 0, b: 0 });
+
+      for (let i = 0; i < count; i++) {
+        const button = document.createElement('button');
+        button.className = `swatch ${i === state.selectedPaletteIndex ? 'selected' : ''}`;
+        button.style.background = rgbToHex(effectivePalette[i]);
+        button.title = `Index ${i}`;
+        button.type = 'button';
+        button.addEventListener('click', () => {
+          state.selectedPaletteIndex = i;
+          renderAll();
+        });
+
+        const label = document.createElement('span');
+        label.textContent = String(i);
+        button.appendChild(label);
+        el.paletteGrid.appendChild(button);
+      }
+    }
+
+    function renderPaletteUpdates() {
+      el.paletteUpdates.innerHTML = '';
+
+      if (state.bpp === 0) return;
+
+      const frame = currentFrame();
+      const count = paletteCount();
+
+      if (frame.paletteUpdates.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'muted';
+        empty.textContent = 'No palette updates for this frame.';
+        el.paletteUpdates.appendChild(empty);
+        return;
+      }
+
+      frame.paletteUpdates.forEach((update, rowIndex) => {
+        const row = document.createElement('div');
+        row.className = 'updateRow';
+
+        const indexInput = document.createElement('select');
+        for (let i = 0; i < count; i++) {
+          const option = document.createElement('option');
+          option.value = String(i);
+          option.textContent = String(i);
+          indexInput.appendChild(option);
+        }
+        indexInput.value = String(update.index);
+        indexInput.addEventListener('change', () => {
+          const nextIndex = clampInt(indexInput.value, 0, count - 1, update.index);
+          const duplicateIndex = frame.paletteUpdates.findIndex((candidate, index) => {
+            return index !== rowIndex && candidate.index === nextIndex;
+          });
+
+          if (duplicateIndex >= 0) {
+            frame.paletteUpdates[duplicateIndex].color = copyRgb(update.color);
+            frame.paletteUpdates.splice(rowIndex, 1);
+          } else {
+            update.index = nextIndex;
+          }
+
+          renderAll();
+        });
+
+        const colorChip = document.createElement('button');
+        colorChip.type = 'button';
+        colorChip.className = 'colorChip';
+        colorChip.style.background = rgbToHex(update.color);
+        colorChip.title = 'Select this palette color';
+
+        const hexInput = document.createElement('input');
+        hexInput.type = 'text';
+        hexInput.value = rgbToHex(update.color);
+        hexInput.placeholder = '#rrggbb';
+
+        function setUpdateColor(hex) {
+          update.color = hexToRgb(hex);
+          colorChip.style.background = hex;
+          hexInput.value = hex;
+          drawGrid();
+          renderPalette();
+          renderColorEditor();
+          renderColorChoices();
+          renderFrameStrip();
+        }
+
+        colorChip.addEventListener('click', () => {
+          state.selectedPaletteIndex = update.index;
+          renderAll();
+        });
+        hexInput.addEventListener('input', () => {
+          const normalized = normalizeHexColor(hexInput.value);
+          if (normalized) {
+            setUpdateColor(normalized);
+          }
+        });
+        hexInput.addEventListener('change', () => {
+          const normalized = normalizeHexColor(hexInput.value);
+          if (normalized) {
+            setUpdateColor(normalized);
+          } else {
+            hexInput.value = rgbToHex(update.color);
+          }
+        });
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'small danger';
+        deleteButton.textContent = 'Delete';
+        deleteButton.addEventListener('click', () => {
+          frame.paletteUpdates.splice(rowIndex, 1);
+          renderAll();
+        });
+
+        row.appendChild(indexInput);
+        row.appendChild(colorChip);
+        row.appendChild(hexInput);
+        row.appendChild(deleteButton);
+        el.paletteUpdates.appendChild(row);
+      });
+    }
+
+    function gridLayout() {
+      const canvas = el.gridCanvas;
+      const w = actualWidth();
+      const h = actualHeight();
+      const pad = 8;
+      const availableW = canvas.width - pad * 2;
+      const availableH = canvas.height - pad * 2;
+      const scale = Math.max(1, Math.floor(Math.min(availableW / w, availableH / h)));
+      const gridW = scale * w;
+      const gridH = scale * h;
+      return {
+        x: Math.floor((canvas.width - gridW) / 2),
+        y: Math.floor((canvas.height - gridH) / 2),
+        cell: scale,
+        gridW,
+        gridH,
+      };
+    }
+
+    function drawGrid() {
+      const canvas = el.gridCanvas;
+      const ctx = canvas.getContext('2d');
+      const w = actualWidth();
+      const h = actualHeight();
+      const frame = currentFrame();
+      const layout = gridLayout();
+      const effectivePalette = state.bpp > 0 ? paletteForFrame(state.currentFrame) : null;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0b0c0d';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const index = y * w + x;
+          const color = state.bpp > 0
+            ? effectivePalette[frame.pixels[index]] || { r: 0, g: 0, b: 0 }
+            : frame.colors[index] || { r: 0, g: 0, b: 0 };
+          ctx.fillStyle = rgbToHex(color);
+          ctx.fillRect(
+            layout.x + x * layout.cell,
+            layout.y + y * layout.cell,
+            layout.cell,
+            layout.cell
+          );
+        }
+      }
+
+      if (layout.cell >= 7) {
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= w; x++) {
+          const px = layout.x + x * layout.cell + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(px, layout.y);
+          ctx.lineTo(px, layout.y + layout.gridH);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= h; y++) {
+          const py = layout.y + y * layout.cell + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(layout.x, py);
+          ctx.lineTo(layout.x + layout.gridW, py);
+          ctx.stroke();
+        }
+      }
+
+      ctx.strokeStyle = '#59616c';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(layout.x, layout.y, layout.gridW, layout.gridH);
+
+      if (state.tool === 'stamp' && state.stamp && state.stampHover) {
+        drawPixelRect(ctx, {
+          x: state.stampHover.x,
+          y: state.stampHover.y,
+          w: state.stamp.w,
+          h: state.stamp.h,
+        }, 'rgba(241, 199, 102, 0.12)', '#f1c766');
+      }
+
+      if (state.stampSelection) {
+        const rect = rectFromPoints(state.stampSelection.start, state.stampSelection.end);
+        drawPixelRect(ctx, rect, 'rgba(97, 210, 197, 0.16)', '#61d2c5');
+      }
+    }
+
+    function canvasPixelFromEvent(event) {
+      const rect = el.gridCanvas.getBoundingClientRect();
+      const scaleX = el.gridCanvas.width / rect.width;
+      const scaleY = el.gridCanvas.height / rect.height;
+      const x = (event.clientX - rect.left) * scaleX;
+      const y = (event.clientY - rect.top) * scaleY;
+      const layout = gridLayout();
+      const gx = Math.floor((x - layout.x) / layout.cell);
+      const gy = Math.floor((y - layout.y) / layout.cell);
+
+      if (gx < 0 || gy < 0 || gx >= actualWidth() || gy >= actualHeight()) {
+        return null;
+      }
+
+      return { x: gx, y: gy, index: gy * actualWidth() + gx };
+    }
+
+    function rectFromPoints(a, b) {
+      const x1 = Math.min(a.x, b.x);
+      const y1 = Math.min(a.y, b.y);
+      const x2 = Math.max(a.x, b.x);
+      const y2 = Math.max(a.y, b.y);
+      return {
+        x: x1,
+        y: y1,
+        w: x2 - x1 + 1,
+        h: y2 - y1 + 1,
+      };
+    }
+
+    function drawPixelRect(ctx, rect, fill, stroke) {
+      const layout = gridLayout();
+      const x = layout.x + rect.x * layout.cell;
+      const y = layout.y + rect.y * layout.cell;
+      const w = rect.w * layout.cell;
+      const h = rect.h * layout.cell;
+
+      ctx.fillStyle = fill;
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 1, y + 1, Math.max(1, w - 2), Math.max(1, h - 2));
+    }
+
+    function copyStampFromSelection() {
+      if (!state.stampSelection) return false;
+
+      const rect = rectFromPoints(state.stampSelection.start, state.stampSelection.end);
+      const frame = currentFrame();
+      const stamp = {
+        bpp: state.bpp,
+        w: rect.w,
+        h: rect.h,
+        pixels: [],
+        colors: [],
+      };
+
+      for (let y = 0; y < rect.h; y++) {
+        for (let x = 0; x < rect.w; x++) {
+          const sourceIndex = (rect.y + y) * actualWidth() + rect.x + x;
+          if (state.bpp > 0) {
+            stamp.pixels.push(frame.pixels[sourceIndex] || 0);
+          } else {
+            stamp.colors.push(copyRgb(frame.colors[sourceIndex] || { r: 0, g: 0, b: 0 }));
+          }
+        }
+      }
+
+      state.stamp = stamp;
+      state.stampSelection = null;
+      state.stampHover = null;
+      renderAll();
+      setStatus(`Stamp copied: ${stamp.w} x ${stamp.h}.`, 'ok');
+      return true;
+    }
+
+    function clearStamp() {
+      discardStampState();
+      renderAll();
+      setStatus('Ready to copy a new stamp.', 'ok');
+    }
+
+    function discardStampState() {
+      state.stamp = null;
+      state.stampSelection = null;
+      state.stampHover = null;
+    }
+
+    function stampAtPixel(pixel) {
+      if (!state.stamp || state.stamp.bpp !== state.bpp) {
+        setStatus('Copy a stamp first.', 'error');
+        return false;
+      }
+
+      const frame = currentFrame();
+      const w = actualWidth();
+      const h = actualHeight();
+      let changed = false;
+
+      for (let sy = 0; sy < state.stamp.h; sy++) {
+        const dy = pixel.y + sy;
+        if (dy < 0 || dy >= h) continue;
+
+        for (let sx = 0; sx < state.stamp.w; sx++) {
+          const dx = pixel.x + sx;
+          if (dx < 0 || dx >= w) continue;
+
+          const stampIndex = sy * state.stamp.w + sx;
+          const targetIndex = dy * w + dx;
+          if (state.bpp > 0) {
+            const value = state.stamp.pixels[stampIndex] || 0;
+            if (frame.pixels[targetIndex] !== value) {
+              frame.pixels[targetIndex] = value;
+              changed = true;
+            }
+          } else {
+            const value = state.stamp.colors[stampIndex] || { r: 0, g: 0, b: 0 };
+            if (!colorsEqual(frame.colors[targetIndex], value)) {
+              frame.colors[targetIndex] = copyRgb(value);
+              changed = true;
+            }
+          }
+        }
+      }
+
+      return changed;
+    }
+
+    function colorsEqual(a, b) {
+      return a && b && a.r === b.r && a.g === b.g && a.b === b.b;
+    }
+
+    function currentToolValue(tool = state.tool) {
+      if (state.bpp > 0) {
+        return tool === 'erase' ? 0 : state.selectedPaletteIndex;
+      }
+
+      return tool === 'erase' ? { r: 0, g: 0, b: 0 } : copyRgb(state.directPaintColor);
+    }
+
+    function fillFromPixel(startIndex, tool = state.tool) {
+      const frame = currentFrame();
+      const w = actualWidth();
+      const h = actualHeight();
+
+      if (state.bpp > 0) {
+        const target = frame.pixels[startIndex];
+        const replacement = currentToolValue(tool);
+        if (target === replacement) return;
+
+        const stack = [startIndex];
+        while (stack.length > 0) {
+          const index = stack.pop();
+          if (frame.pixels[index] !== target) continue;
+          frame.pixels[index] = replacement;
+
+          const x = index % w;
+          const y = Math.floor(index / w);
+          if (x > 0) stack.push(index - 1);
+          if (x < w - 1) stack.push(index + 1);
+          if (y > 0) stack.push(index - w);
+          if (y < h - 1) stack.push(index + w);
+        }
+        return;
+      }
+
+      const targetColor = copyRgb(frame.colors[startIndex] || { r: 0, g: 0, b: 0 });
+      const replacementColor = currentToolValue(tool);
+      if (colorsEqual(targetColor, replacementColor)) return;
+
+      const stack = [startIndex];
+      while (stack.length > 0) {
+        const index = stack.pop();
+        if (!colorsEqual(frame.colors[index], targetColor)) continue;
+        frame.colors[index] = copyRgb(replacementColor);
+
+        const x = index % w;
+        const y = Math.floor(index / w);
+        if (x > 0) stack.push(index - 1);
+        if (x < w - 1) stack.push(index + 1);
+        if (y > 0) stack.push(index - w);
+        if (y < h - 1) stack.push(index + w);
+      }
+    }
+
+    function paintPixel(pixel, tool = state.tool) {
+      const frame = currentFrame();
+      if (tool === 'fill') {
+        fillFromPixel(pixel.index, tool);
+      } else if (tool === 'stamp') {
+        stampAtPixel(pixel);
+      } else if (state.bpp > 0) {
+        frame.pixels[pixel.index] = currentToolValue(tool);
+      } else {
+        frame.colors[pixel.index] = currentToolValue(tool);
+      }
+    }
+
+    function paintFromEvent(event, tool = state.tool) {
+      const pixel = canvasPixelFromEvent(event);
+      if (!pixel) return;
+
+      if (tool === 'stamp') {
+        state.stampHover = { x: pixel.x, y: pixel.y };
+      }
+      paintPixel(pixel, tool);
+      drawGrid();
+      renderFrameStrip();
+    }
+
+    function addFrame() {
+      stopAnimationPreview();
+      state.frames.push(blankFrame());
+      state.currentFrame = state.frames.length - 1;
+      renderAll();
+      setStatus('Frame added.', 'ok');
+    }
+
+    function duplicateFrame() {
+      stopAnimationPreview();
+      const source = currentFrame();
+      state.frames.splice(state.currentFrame + 1, 0, {
+        pixels: source.pixels.slice(),
+        colors: source.colors.map(copyRgb),
+        paletteUpdates: source.paletteUpdates.map(update => ({
+          index: update.index,
+          color: copyRgb(update.color),
+        })),
+      });
+      state.currentFrame++;
+      renderAll();
+      setStatus('Frame duplicated.', 'ok');
+    }
+
+    function goToFrame(delta) {
+      stopAnimationPreview();
+      state.currentFrame = clamp(state.currentFrame + delta, 0, state.frames.length - 1);
+      renderAll();
+    }
+
+    function clearFrame() {
+      stopAnimationPreview();
+      state.frames[state.currentFrame] = blankFrame();
+      renderAll();
+      setStatus('Frame cleared.', 'ok');
+    }
+
+    function deleteFrame() {
+      stopAnimationPreview();
+      if (state.frames.length <= 1) {
+        state.frames[0] = blankFrame();
+        renderAll();
+        return;
+      }
+
+      state.frames.splice(state.currentFrame, 1);
+      state.currentFrame = clamp(state.currentFrame, 0, state.frames.length - 1);
+      renderAll();
+      setStatus('Frame deleted.', 'ok');
+    }
+
+    function stopAnimationPreview() {
+      if (previewTimer) {
+        window.clearInterval(previewTimer);
+        previewTimer = null;
+      }
+      el.previewAnimationBtn.textContent = 'Preview';
+    }
+
+    function toggleAnimationPreview() {
+      if (previewTimer) {
+        stopAnimationPreview();
+        return;
+      }
+
+      const fps = targetFpsValue();
+      const delayMs = Math.max(50, Math.round(1000 / fps));
+      el.previewAnimationBtn.textContent = 'Stop';
+      previewTimer = window.setInterval(() => {
+        state.currentFrame = (state.currentFrame + 1) % state.frames.length;
+        renderAll();
+      }, delayMs);
+    }
+
+    function addPaletteUpdate() {
+      if (state.bpp === 0) return;
+      const frame = currentFrame();
+      const index = syncSelectedPaletteIndexFromInput();
+      const existing = frame.paletteUpdates.find(update => update.index === index);
+      if (existing) {
+        renderAll();
+        setStatus(`Frame already has an update for palette index ${index}.`, 'ok');
+        return;
+      }
+
+      if (frame.paletteUpdates.length >= 255) {
+        setStatus('A frame can encode at most 255 palette updates.', 'error');
+        return;
+      }
+
+      const effectivePalette = paletteForFrame(state.currentFrame);
+      frame.paletteUpdates.push({
+        index,
+        color: copyRgb(effectivePalette[index] || { r: 0, g: 0, b: 0 }),
+      });
+      renderAll();
+      setStatus('Palette update added.', 'ok');
+    }
+
+    function pushByteBits(bits, byte) {
+      const value = byte & 255;
+      for (let bit = 7; bit >= 0; bit--) {
+        bits.push((value >> bit) & 1);
+      }
+    }
+
+    function pushValueBits(bits, value, count) {
+      for (let bit = count - 1; bit >= 0; bit--) {
+        bits.push((value >> bit) & 1);
+      }
+    }
+
+    function appendBits(bits, source) {
+      for (let i = 0; i < source.length; i++) {
+        bits.push(source[i]);
+      }
+    }
+
+    function pushColorBits(bits, color) {
+      const limited = limitRgb(color);
+      pushByteBits(bits, limited.r);
+      pushByteBits(bits, limited.g);
+      pushByteBits(bits, limited.b);
+    }
+
+    function readResyncSettings() {
+      const everyFrames = Math.max(0, clampInt(el.resyncEveryFrames.value, 0, 100000, 1));
+      const guardBits = Math.max(2, clampInt(el.resyncGuardBits.value, 2, 1000, 8));
+      return { everyFrames, guardBits };
+    }
+
+    function pushProtocolHeaderBits(bits) {
+      pushByteBits(bits, state.widthByte);
+      pushByteBits(bits, state.heightByte);
+      pushByteBits(bits, state.bpp);
+    }
+
+    function pushFramePaletteUpdates(bits, frame, workingPalette, count) {
+      const updates = (frame.paletteUpdates || []).slice(0, 255);
+      bits.push(updates.length > 0 ? 1 : 0);
+
+      if (updates.length === 0) {
+        return;
+      }
+
+      pushByteBits(bits, updates.length);
+      for (const update of updates) {
+        pushByteBits(bits, update.index);
+        pushColorBits(bits, update.color);
+
+        if (update.index >= 0 && update.index < count) {
+          workingPalette[update.index] = copyRgb(update.color);
+        }
+      }
+    }
+
+    function pushIndexedFramePixels(bits, frame) {
+      for (const index of frame.pixels) {
+        pushValueBits(bits, index, state.bpp);
+      }
+    }
+
+    function buildLegacyProtocolBits() {
+      normalizeFrames();
+
+      const bits = [];
+      pushProtocolHeaderBits(bits);
+
+      if (state.bpp === 0) {
+        for (const frame of state.frames) {
+          for (const color of frame.colors) {
+            pushColorBits(bits, color);
+          }
+        }
+        return bits;
+      }
+
+      const count = paletteCount();
+      const workingPalette = [];
+      for (let i = 0; i < count; i++) {
+        const color = state.palette[i] || { r: 0, g: 0, b: 0 };
+        workingPalette[i] = copyRgb(color);
+        pushColorBits(bits, color);
+      }
+
+      for (const frame of state.frames) {
+        pushFramePaletteUpdates(bits, frame, workingPalette, count);
+        pushIndexedFramePixels(bits, frame);
+      }
+
+      return bits;
+    }
+
+    function buildProtocolChunks(resyncEveryFrames = readResyncSettings().everyFrames) {
+      normalizeFrames();
+
+      if (resyncEveryFrames <= 0 || state.frames.length <= 1) {
+        return [{
+          startFrame: 0,
+          endFrame: state.frames.length,
+          bits: buildLegacyProtocolBits(),
+        }];
+      }
+
+      const chunkSize = Math.max(1, Math.floor(resyncEveryFrames));
+      const chunks = [];
+
+      if (state.bpp === 0) {
+        for (let start = 0; start < state.frames.length; start += chunkSize) {
+          const end = Math.min(state.frames.length, start + chunkSize);
+          const bits = [];
+          pushProtocolHeaderBits(bits);
+
+          for (let frameIndex = start; frameIndex < end; frameIndex++) {
+            for (const color of state.frames[frameIndex].colors) {
+              pushColorBits(bits, color);
+            }
+          }
+
+          chunks.push({ startFrame: start, endFrame: end, bits });
+        }
+
+        return chunks;
+      }
+
+      const count = paletteCount();
+      const workingPalette = [];
+      for (let i = 0; i < count; i++) {
+        workingPalette[i] = copyRgb(state.palette[i] || { r: 0, g: 0, b: 0 });
+      }
+
+      for (let start = 0; start < state.frames.length; start += chunkSize) {
+        const end = Math.min(state.frames.length, start + chunkSize);
+        const firstFrame = state.frames[start];
+
+        for (const update of (firstFrame.paletteUpdates || []).slice(0, 255)) {
+          if (update.index >= 0 && update.index < count) {
+            workingPalette[update.index] = copyRgb(update.color);
+          }
+        }
+
+        const bits = [];
+        pushProtocolHeaderBits(bits);
+        for (let i = 0; i < count; i++) {
+          pushColorBits(bits, workingPalette[i] || { r: 0, g: 0, b: 0 });
+        }
+
+        for (let frameIndex = start; frameIndex < end; frameIndex++) {
+          const frame = state.frames[frameIndex];
+          if (frameIndex === start) {
+            bits.push(0);
+          } else {
+            pushFramePaletteUpdates(bits, frame, workingPalette, count);
+          }
+
+          pushIndexedFramePixels(bits, frame);
+        }
+
+        chunks.push({ startFrame: start, endFrame: end, bits });
+      }
+
+      return chunks;
+    }
+
+    function buildProtocolBits() {
+      const bits = [];
+      for (const chunk of buildProtocolChunks()) {
+        appendBits(bits, chunk.bits);
+      }
+      return bits;
+    }
+
+    function buildSignalBits() {
+      const resync = readResyncSettings();
+      const chunks = buildProtocolChunks(resync.everyFrames);
+      const preambleCount = Math.max(0, clampInt(el.preambleCount.value, 0, 10000, 16));
+      const includeSync = el.includeSync.checked;
+      if (chunks.length > 1 && (!includeSync || preambleCount < 3)) {
+        throw new Error('Chunked resync needs at least 3 preamble bytes and the sync byte enabled.');
+      }
+
+      const bits = [];
+      const protocolBits = [];
+      const signalSegments = [];
+      const guardHalfCount = chunks.length > 1 ? resync.guardBits * 2 : 0;
+      let halfCursor = 0;
+
+      chunks.forEach((chunk, chunkIndex) => {
+        if (chunkIndex > 0 && guardHalfCount > 0) {
+          signalSegments.push({
+            type: 'guard',
+            startHalf: halfCursor,
+            halfCount: guardHalfCount,
+          });
+          halfCursor += guardHalfCount;
+        }
+
+        const chunkBits = [];
+        for (let i = 0; i < preambleCount; i++) {
+          pushByteBits(chunkBits, 0x55);
+        }
+
+        if (includeSync) {
+          pushByteBits(chunkBits, 0xD5);
+        }
+
+        appendBits(chunkBits, chunk.bits);
+        appendBits(bits, chunkBits);
+        appendBits(protocolBits, chunk.bits);
+
+        signalSegments.push({
+          type: 'bits',
+          bits: chunkBits,
+          startHalf: halfCursor,
+          halfCount: chunkBits.length * 2,
+        });
+        halfCursor += chunkBits.length * 2;
+      });
+
+      return {
+        bits,
+        protocolBits,
+        chunks,
+        signalSegments,
+        signalHalfCount: halfCursor,
+        signalBitPeriods: halfCursor / 2,
+        preambleCount,
+        includeSync,
+        resyncEveryFrames: resync.everyFrames,
+        resyncGuardBits: chunks.length > 1 ? resync.guardBits : 0,
+        guardBreaks: Math.max(0, chunks.length - 1),
+      };
+    }
+
+    function manchesterLevelForHalf(bits, halfIndex, convention) {
+      const bit = bits[Math.floor(halfIndex / 2)] || 0;
+      const firstHalf = (halfIndex & 1) === 0;
+      if (convention === 'ieee') {
+        return bit === 0
+          ? (firstHalf ? -1 : +1)
+          : (firstHalf ? +1 : -1);
+      }
+
+      return bit === 0
+        ? (firstHalf ? +1 : -1)
+        : (firstHalf ? -1 : +1);
+    }
+
+    function firstPreambleHalfLevel(convention) {
+      return manchesterLevelForHalf([0], 0, convention);
+    }
+
+    function manchesterHalfLevels(bits, convention) {
+      const out = [];
+      for (const bit of bits) {
+        if (convention === 'ieee') {
+          out.push(bit === 0 ? -1 : +1);
+          out.push(bit === 0 ? +1 : -1);
+        } else {
+          out.push(bit === 0 ? +1 : -1);
+          out.push(bit === 0 ? -1 : +1);
+        }
+      }
+      return out;
+    }
+
+    function manchesterHalfLevelsForSignal(stream, convention) {
+      const out = [];
+
+      for (const segment of stream.signalSegments) {
+        if (segment.type === 'guard') {
+          const level = firstPreambleHalfLevel(convention);
+          for (let i = 0; i < segment.halfCount; i++) {
+            out.push(level);
+          }
+          continue;
+        }
+
+        appendBits(out, manchesterHalfLevels(segment.bits, convention));
+      }
+
+      return out;
+    }
+
+    function formatSeconds(sec) {
+      if (sec < 1) return `${sec.toFixed(3)} s`;
+      if (sec < 10) return `${sec.toFixed(2)} s`;
+      if (sec < 100) return `${sec.toFixed(1)} s`;
+      return `${sec.toFixed(0)} s`;
+    }
+
+    function timingForStream(stream) {
+      const targetFps = targetFpsValue();
+      const maxBitRate = maxBitRateValue();
+      const frames = Math.max(1, state.frames.length);
+      const requiredBitRate = (stream.signalBitPeriods * targetFps) / frames;
+      const bitRate = Math.min(maxBitRate, requiredBitRate);
+      const actualFps = bitRate * frames / Math.max(1, stream.signalBitPeriods);
+
+      return {
+        targetFps,
+        maxBitRate,
+        requiredBitRate,
+        bitRate,
+        actualFps,
+        limited: requiredBitRate > maxBitRate + 0.001,
+      };
+    }
+
+    function generatePcm() {
+      const sampleRate = parseInt(el.sampleRate.value, 10);
+      const amplitude = clamp(parseFloat(el.amplitude.value), 0.01, 1.0);
+      const startSilenceMs = Math.max(0, parseFloat(el.startSilence.value) || 0);
+      const endSilenceMs = Math.max(0, parseFloat(el.endSilence.value) || 0);
+      const convention = el.convention.value;
+      const smoothEdges = el.smoothEdges.checked;
+
+      if (!Number.isFinite(sampleRate) || sampleRate < 8000) throw new Error('Sample rate must be at least 8000 Hz.');
+
+      const stream = buildSignalBits();
+      if (stream.bits.length === 0) throw new Error('Nothing to encode.');
+      const timing = timingForStream(stream);
+      const bitRate = timing.bitRate;
+
+      if (!Number.isFinite(bitRate) || bitRate <= 0) throw new Error('Bit rate must be greater than 0.');
+      if (sampleRate < bitRate * 8) throw new Error('Sample rate is too low for that bit rate.');
+
+      const halfLevels = manchesterHalfLevelsForSignal(stream, convention);
+      const halfBitDur = 1 / (bitRate * 2);
+      const startSilenceSec = startSilenceMs / 1000;
+      const endSilenceSec = endSilenceMs / 1000;
+      const dataDur = stream.signalHalfCount * halfBitDur;
+      const totalDur = startSilenceSec + dataDur + endSilenceSec;
+      const totalSamples = Math.max(1, Math.ceil(totalDur * sampleRate));
+      const samples = new Float32Array(totalSamples);
+      const startTime = startSilenceSec;
+      const endDataTime = startSilenceSec + dataDur;
+      const rampSamples = smoothEdges ? Math.max(1, Math.round(sampleRate * Math.min(halfBitDur * 0.15, 0.00035))) : 0;
+
+      for (let i = 0; i < totalSamples; i++) {
+        const t = i / sampleRate;
+        let v = 0;
+
+        if (t >= startTime && t < endDataTime) {
+          const dataT = t - startTime;
+          const halfIndex = Math.min(halfLevels.length - 1, Math.floor(dataT / halfBitDur));
+          v = halfLevels[halfIndex] * amplitude;
+
+          if (rampSamples > 0) {
+            const sampleInHalf = Math.floor((dataT - halfIndex * halfBitDur) * sampleRate);
+            if (sampleInHalf < rampSamples && halfIndex > 0) {
+              const prev = halfLevels[halfIndex - 1] * amplitude;
+              const mix = sampleInHalf / rampSamples;
+              v = prev + (v - prev) * mix;
+            }
+          }
+        }
+
+        samples[i] = v;
+      }
+
+      return {
+        samples,
+        sampleRate,
+        bits: stream.bits,
+        protocolBits: stream.protocolBits,
+        halfLevels,
+        meta: {
+          bitRate,
+          maxBitRate: timing.maxBitRate,
+          targetFps: timing.targetFps,
+          actualFps: timing.actualFps,
+          fpsLimited: timing.limited,
+          requiredBitRate: timing.requiredBitRate,
+          sampleRate,
+          amplitude,
+          totalBits: stream.signalBitPeriods,
+          dataBits: stream.bits.length,
+          protocolBits: stream.protocolBits.length,
+          tailBits: stream.protocolBits.length % 8,
+          totalSamples,
+          totalDuration: totalDur,
+          preambleCount: stream.preambleCount,
+          includeSync: stream.includeSync,
+          chunkCount: stream.chunks.length,
+          resyncEveryFrames: stream.resyncEveryFrames,
+          resyncGuardBits: stream.resyncGuardBits,
+          guardBreaks: stream.guardBreaks,
+          convention,
+          channelLayout: el.channelLayout.value,
+          wavChannels: el.channelLayout.value === 'mono' ? 1 : 2,
+          frames: state.frames.length,
+          brightnessLimit: brightnessLimitPercent(),
+          ledColorProfile: ledColorProfileEnabled(),
+        },
+      };
+    }
+
+    function pcmToWavBlob(samples, sampleRate, channelLayout = el.channelLayout.value) {
+      const numChannels = channelLayout === 'mono' ? 1 : 2;
+      const bitsPerSample = 16;
+      const blockAlign = numChannels * bitsPerSample / 8;
+      const byteRate = sampleRate * blockAlign;
+      const dataSize = samples.length * blockAlign;
+      const buffer = new ArrayBuffer(44 + dataSize);
+      const view = new DataView(buffer);
+
+      function writeString(offset, str) {
+        for (let i = 0; i < str.length; i++) {
+          view.setUint8(offset + i, str.charCodeAt(i));
+        }
+      }
+
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + dataSize, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitsPerSample, true);
+      writeString(36, 'data');
+      view.setUint32(40, dataSize, true);
+
+      let offset = 44;
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        const dataSample = s < 0 ? s * 0x8000 : s * 0x7FFF;
+
+        if (numChannels === 1) {
+          view.setInt16(offset, dataSample, true);
+          offset += 2;
+        } else if (channelLayout === 'data-left') {
+          view.setInt16(offset, dataSample, true);
+          view.setInt16(offset + 2, 0, true);
+          offset += 4;
+        } else {
+          view.setInt16(offset, 0, true);
+          view.setInt16(offset + 2, dataSample, true);
+          offset += 4;
+        }
+      }
+
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    function bitsToHex(bits, maxBytes = 96) {
+      const fullBytes = Math.floor(bits.length / 8);
+      const limit = Math.min(fullBytes, maxBytes);
+      const out = [];
+
+      for (let i = 0; i < limit; i++) {
+        let value = 0;
+        for (let bit = 0; bit < 8; bit++) {
+          value = (value << 1) | bits[i * 8 + bit];
+        }
+        out.push(value.toString(16).padStart(2, '0'));
+      }
+
+      return `${out.join(' ')}${fullBytes > maxBytes ? ' ...' : ''}`;
+    }
+
+    function bitsPreview(bits, maxBits = 192) {
+      const shown = bits.slice(0, maxBits).join('');
+      return `${shown}${bits.length > maxBits ? ' ...' : ''}`;
+    }
+
+    function updateAudioUi(result) {
+      const { samples, meta, protocolBits, bits, halfLevels } = result;
+      el.frameCount.textContent = String(meta.frames);
+      el.targetFpsStat.textContent = formatFps(meta.targetFps);
+      el.actualFps.textContent = formatFps(meta.actualFps);
+      el.dataRateUsed.textContent = formatDataRate(meta.bitRate);
+      el.protocolBits.textContent = meta.protocolBits.toString();
+      el.tailBits.textContent = meta.tailBits.toString();
+      el.totalBits.textContent = meta.totalBits.toString();
+      el.duration.textContent = formatSeconds(meta.totalDuration);
+      el.sampleCount.textContent = meta.totalSamples.toLocaleString();
+
+      const fullProtocolBytes = Math.floor(protocolBits.length / 8);
+      const tail = protocolBits.slice(fullProtocolBytes * 8).join('');
+      const mode = state.bpp === 0 ? 'direct RGB' : `${paletteCount()} color indexed`;
+      const wavMode = meta.wavChannels === 1
+        ? 'mono data'
+        : (meta.channelLayout === 'data-left' ? 'data left / silent right' : 'silent left / data right');
+      el.preview.textContent =
+`Protocol: ${actualWidth()}x${actualHeight()}, bpp ${state.bpp}, ${mode}
+Frames: ${state.frames.length}
+Target FPS: ${formatFps(meta.targetFps)}
+Actual FPS: ${formatFps(meta.actualFps)}${meta.fpsLimited ? ' (limited)' : ''}
+Data rate: ${formatDataRate(meta.bitRate)} / ${formatDataRate(meta.maxBitRate)}
+WAV: ${wavMode}
+Brightness limit: ${meta.brightnessLimit.toFixed(0)}%
+LED-aware matching: ${meta.ledColorProfile ? 'on' : 'off'}
+Resync chunks: ${meta.chunkCount}
+Guard breaks: ${meta.guardBreaks}${meta.guardBreaks ? ` x ${meta.resyncGuardBits} bit periods` : ''}
+Protocol bits: ${protocolBits.length}
+Signal data bits: ${meta.dataBits}
+Full protocol bytes: ${fullProtocolBytes}
+Protocol tail bits: ${tail || 'none'}
+
+Protocol bytes:
+${bitsToHex(protocolBits, 120)}
+
+Protocol bit preview:
+${bitsPreview(protocolBits)}
+
+Full signal bit preview:
+${bitsPreview(bits)}
+
+Manchester half-level preview:
+${halfLevels.slice(0, 64).map(v => v > 0 ? '+1' : '-1').join(' ')}${halfLevels.length > 64 ? ' ...' : ''}`;
+
+      drawWave(samples, meta.sampleRate);
+    }
+
+    function drawWave(samples, sampleRate) {
+      const canvas = el.waveCanvas;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#0e0f11';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 8; i++) {
+        const y = (h / 8) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = 'rgba(97, 210, 197, 0.95)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      const previewSamples = Math.min(samples.length, Math.max(2000, Math.round(sampleRate * 0.08)));
+      for (let x = 0; x < w; x++) {
+        const idx = Math.min(previewSamples - 1, Math.floor((x / Math.max(1, w - 1)) * previewSamples));
+        const v = samples[idx];
+        const y = h / 2 - v * (h * 0.38);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(241, 199, 102, 0.75)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(0, h / 2);
+      ctx.lineTo(w, h / 2);
+      ctx.stroke();
+    }
+
+    function generate() {
+      try {
+        setStatus('Generating audio...');
+        const result = generatePcm();
+        const wavBlob = pcmToWavBlob(result.samples, result.sampleRate, el.channelLayout.value);
+
+        if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+        currentBlobUrl = URL.createObjectURL(wavBlob);
+        currentBlob = wavBlob;
+        currentMeta = result.meta;
+
+        el.player.src = currentBlobUrl;
+        updateAudioUi(result);
+        const fpsText = result.meta.fpsLimited
+          ? ` Limited to ${formatFps(result.meta.actualFps)} FPS by ${formatDataRate(result.meta.maxBitRate)}.`
+          : '';
+        setStatus(`Generated ${result.meta.totalBits} Manchester signal bit periods.${fpsText}`, 'ok');
+        return true;
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), 'error');
+        return false;
+      }
+    }
+
+    function downloadCurrent() {
+      if (!generate()) return;
+      if (!currentBlob) return;
+
+      const a = document.createElement('a');
+      const safeRate = currentMeta ? currentMeta.bitRate.toFixed(0) : 'rate';
+      a.href = currentBlobUrl;
+      a.download = `led_manchester_${actualWidth()}x${actualHeight()}_${state.frames.length}f_${safeRate}bps.wav`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function togglePlayback() {
+      if (el.player.paused) {
+        if (!generate()) return;
+        el.player.play();
+      } else {
+        el.player.pause();
+      }
+    }
+
+    function projectToObject() {
+      const obj = {
+        width: state.widthByte,
+        height: state.heightByte,
+        bpp: state.bpp,
+        frames: [],
+      };
+
+      if (state.bpp > 0) {
+        obj.palette = state.palette.slice(0, paletteCount()).map(rgbToHex);
+        obj.frames = state.frames.map(frame => ({
+          paletteUpdates: frame.paletteUpdates.map(update => ({
+            index: update.index,
+            color: rgbToHex(update.color),
+          })),
+          pixels: frame.pixels.slice(),
+        }));
+      } else {
+        obj.frames = state.frames.map(frame => ({
+          colors: frame.colors.map(rgbToHex),
+        }));
+      }
+
+      return obj;
+    }
+
+    function exportProjectJson() {
+      el.projectJson.value = JSON.stringify(projectToObject(), null, 2);
+      setStatus('JSON exported.', 'ok');
+    }
+
+    function loadProjectJson() {
+      try {
+        const obj = JSON.parse(el.projectJson.value);
+        const nextWidthByte = clampInt(obj.width ?? obj.widthByte, 0, 255, 8);
+        const nextHeightByte = clampInt(obj.height ?? obj.heightByte, 0, 255, 8);
+        const nextBpp = clampInt(obj.bpp, 0, 8, 0);
+        const nextW = actualDim(nextWidthByte);
+        const nextH = actualDim(nextHeightByte);
+
+        if (nextW * nextH > MAX_GRID_PIXELS) {
+          throw new Error(`Grid is too large. Max is ${MAX_GRID_PIXELS} pixels.`);
+        }
+
+        state.widthByte = nextWidthByte;
+        state.heightByte = nextHeightByte;
+        state.bpp = nextBpp;
+        state.currentFrame = 0;
+        discardStampState();
+
+        if (state.bpp > 0) {
+          const count = paletteCount();
+          const sourcePalette = Array.isArray(obj.palette) ? obj.palette : [];
+          state.palette = Array.from({ length: count }, (_, index) => {
+            return sourcePalette[index] ? hexToRgb(sourcePalette[index]) : defaultPaletteEntry(index, count);
+          });
+        }
+
+        const rawFrames = Array.isArray(obj.frames) && obj.frames.length > 0 ? obj.frames : [null];
+        state.frames = rawFrames.map(raw => {
+          const frame = blankFrame();
+          const data = raw || {};
+
+          if (state.bpp === 0) {
+            const colors = Array.isArray(data) ? data : data.colors;
+            if (Array.isArray(colors)) {
+              frame.colors = frame.colors.map((color, index) => colors[index] ? hexToRgb(colors[index]) : color);
+            }
+          } else {
+            const maxIndex = paletteCount() - 1;
+            if (Array.isArray(data.pixels)) {
+              frame.pixels = frame.pixels.map((value, index) => clampInt(data.pixels[index], 0, maxIndex, 0));
+            }
+
+            if (Array.isArray(data.paletteUpdates)) {
+              frame.paletteUpdates = data.paletteUpdates.slice(0, 255).map(update => ({
+                index: clampInt(update.index, 0, maxIndex, 0),
+                color: hexToRgb(update.color || update.hex || '#000000'),
+              }));
+            }
+          }
+
+          return frame;
+        });
+
+        ensurePaletteSize();
+        normalizeFrames();
+        syncInputsFromState();
+        renderAll();
+        setStatus('JSON loaded.', 'ok');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), 'error');
+      }
+    }
+
+    function syncInputsFromState() {
+      el.widthByte.value = String(state.widthByte);
+      el.heightByte.value = String(state.heightByte);
+      el.bpp.value = String(state.bpp);
+      el.directPaintColor.value = rgbToHex(state.directPaintColor);
+    }
+
+    function renderStats() {
+      el.actualGrid.textContent = `${actualWidth()} x ${actualHeight()}`;
+      el.pixelCount.textContent = pixelCount().toString();
+      el.frameCount.textContent = state.frames.length.toString();
+      el.targetFpsStat.textContent = formatFps(targetFpsValue());
+
+      try {
+        const stream = buildSignalBits();
+        const timing = timingForStream(stream);
+        const protocolBitCount = stream.protocolBits.length;
+        el.protocolBits.textContent = protocolBitCount.toString();
+        el.tailBits.textContent = (protocolBitCount % 8).toString();
+        el.totalBits.textContent = stream.signalBitPeriods.toString();
+        el.actualFps.textContent = formatFps(timing.actualFps);
+        el.dataRateUsed.textContent = formatDataRate(timing.bitRate);
+        const startSilenceSec = Math.max(0, parseFloat(el.startSilence.value) || 0) / 1000;
+        const endSilenceSec = Math.max(0, parseFloat(el.endSilence.value) || 0) / 1000;
+        el.duration.textContent = formatSeconds(startSilenceSec + stream.signalBitPeriods / timing.bitRate + endSilenceSec);
+      } catch (err) {
+        el.protocolBits.textContent = '0';
+        el.tailBits.textContent = '0';
+        el.totalBits.textContent = '0';
+        el.actualFps.textContent = '0';
+        el.dataRateUsed.textContent = '0 bps';
+      }
+    }
+
+    function renderAll() {
+      ensurePaletteSize();
+      normalizeFrames();
+      syncInputsFromState();
+      renderFrameSelect();
+      renderToolButtons();
+      renderPalette();
+      renderColorEditor();
+      renderColorChoices();
+      renderPaletteUpdates();
+      renderFrameStrip();
+      renderStats();
+      drawGrid();
+    }
+
+    function setTool(tool) {
+      state.tool = tool;
+      state.stampSelection = null;
+      state.stampHover = null;
+      selectingStamp = false;
+      renderToolButtons();
+      drawGrid();
+      if (tool === 'stamp' && !state.stamp) {
+        setStatus('Drag a region to copy a stamp.', 'ok');
+      }
+    }
+
+    el.paintToolBtn.addEventListener('click', () => setTool('paint'));
+    el.eraseToolBtn.addEventListener('click', () => setTool('erase'));
+    el.fillToolBtn.addEventListener('click', () => setTool('fill'));
+    el.stampToolBtn.addEventListener('click', () => setTool('stamp'));
+    el.newStampBtn.addEventListener('click', clearStamp);
+    el.applyGridBtn.addEventListener('click', applyGrid);
+    el.bpp.addEventListener('change', applyBpp);
+    el.basePaletteColor.addEventListener('input', () => {
+      if (state.bpp === 0) return;
+      state.palette[state.selectedPaletteIndex] = hexToRgb(el.basePaletteColor.value);
+      renderAll();
+    });
+    el.framePaletteColor.addEventListener('input', () => {
+      if (state.bpp === 0) return;
+      const index = syncSelectedPaletteIndexFromInput();
+      setCurrentFramePaletteColor(index, hexToRgb(el.framePaletteColor.value));
+    });
+    el.framePaletteColor.addEventListener('change', () => {
+      if (state.bpp === 0) return;
+      const index = syncSelectedPaletteIndexFromInput();
+      setCurrentFramePaletteColor(index, hexToRgb(el.framePaletteColor.value));
+    });
+    el.selectedPaletteIndex.addEventListener('change', () => {
+      if (state.bpp === 0) return;
+      syncSelectedPaletteIndexFromInput();
+      renderAll();
+    });
+    el.directPaintColor.addEventListener('input', () => {
+      state.directPaintColor = hexToRgb(el.directPaintColor.value);
+      syncInputsFromState();
+    });
+    el.colorHue.addEventListener('input', () => applyPickerColor(colorFromEditorInputs()));
+    el.colorSaturation.addEventListener('input', () => applyPickerColor(colorFromEditorInputs()));
+    el.colorValue.addEventListener('input', () => applyPickerColor(colorFromEditorInputs()));
+    el.colorHex.addEventListener('input', () => {
+      const normalized = normalizeHexColor(el.colorHex.value);
+      if (normalized) {
+        applyPickerColor(hexToRgb(normalized));
+      }
+    });
+    el.colorHex.addEventListener('change', () => {
+      const normalized = normalizeHexColor(el.colorHex.value);
+      if (normalized) {
+        applyPickerColor(hexToRgb(normalized));
+      } else {
+        renderColorEditor();
+      }
+    });
+    el.saveColorBtn.addEventListener('click', saveCurrentColorToPresets);
+    el.resetColorsBtn.addEventListener('click', resetColorPresets);
+    el.addUpdateBtn.addEventListener('click', addPaletteUpdate);
+    el.frameSelect.addEventListener('change', () => {
+      stopAnimationPreview();
+      state.currentFrame = clampInt(el.frameSelect.value, 0, state.frames.length - 1, state.currentFrame);
+      renderAll();
+    });
+    el.prevFrameBtn.addEventListener('click', () => goToFrame(-1));
+    el.nextFrameBtn.addEventListener('click', () => goToFrame(1));
+    el.addFrameBtn.addEventListener('click', addFrame);
+    el.duplicateFrameBtn.addEventListener('click', duplicateFrame);
+    el.clearFrameBtn.addEventListener('click', clearFrame);
+    el.deleteFrameBtn.addEventListener('click', deleteFrame);
+    el.previewAnimationBtn.addEventListener('click', toggleAnimationPreview);
+    el.exportJsonBtn.addEventListener('click', exportProjectJson);
+    el.loadJsonBtn.addEventListener('click', loadProjectJson);
+    el.targetFps.addEventListener('input', renderStats);
+    el.bitRate.addEventListener('input', renderStats);
+    el.startSilence.addEventListener('input', renderStats);
+    el.endSilence.addEventListener('input', renderStats);
+    el.preambleCount.addEventListener('input', renderStats);
+    el.includeSync.addEventListener('change', renderStats);
+    el.resyncEveryFrames.addEventListener('input', renderStats);
+    el.resyncGuardBits.addEventListener('input', renderStats);
+    el.generateBtn.addEventListener('click', generate);
+    el.downloadBtn.addEventListener('click', downloadCurrent);
+    el.playBtn.addEventListener('click', togglePlayback);
+
+    function releaseCanvasPointer(event) {
+      if (el.gridCanvas.hasPointerCapture && el.gridCanvas.hasPointerCapture(event.pointerId)) {
+        el.gridCanvas.releasePointerCapture(event.pointerId);
+      }
+    }
+
+    el.gridCanvas.addEventListener('contextmenu', event => {
+      event.preventDefault();
+    });
+
+    el.gridCanvas.addEventListener('pointerdown', event => {
+      const pixel = canvasPixelFromEvent(event);
+      if (!pixel) return;
+
+      el.gridCanvas.setPointerCapture(event.pointerId);
+
+      if (event.button === 2) {
+        activePaintTool = 'erase';
+        painting = true;
+        paintFromEvent(event, activePaintTool);
+        return;
+      }
+
+      if (event.button !== 0) return;
+
+      if (state.tool === 'stamp' && !state.stamp) {
+        selectingStamp = true;
+        state.stampSelection = { start: pixel, end: pixel };
+        drawGrid();
+        return;
+      }
+
+      activePaintTool = state.tool;
+      painting = state.tool !== 'fill';
+      paintFromEvent(event, activePaintTool);
+    });
+
+    el.gridCanvas.addEventListener('pointermove', event => {
+      const pixel = canvasPixelFromEvent(event);
+
+      if (selectingStamp) {
+        if (pixel) {
+          state.stampSelection.end = pixel;
+          drawGrid();
+        }
+        return;
+      }
+
+      if (painting) {
+        paintFromEvent(event, activePaintTool);
+        return;
+      }
+
+      if (state.tool === 'stamp' && state.stamp) {
+        const nextHover = pixel ? { x: pixel.x, y: pixel.y } : null;
+        const changed = !state.stampHover
+          || !nextHover
+          || state.stampHover.x !== nextHover.x
+          || state.stampHover.y !== nextHover.y;
+        state.stampHover = nextHover;
+        if (changed) drawGrid();
+      }
+    });
+
+    el.gridCanvas.addEventListener('pointerup', event => {
+      if (selectingStamp) {
+        const pixel = canvasPixelFromEvent(event);
+        if (pixel) state.stampSelection.end = pixel;
+        selectingStamp = false;
+        copyStampFromSelection();
+      }
+
+      painting = false;
+      activePaintTool = state.tool;
+      releaseCanvasPointer(event);
+    });
+
+    el.gridCanvas.addEventListener('pointercancel', event => {
+      selectingStamp = false;
+      painting = false;
+      state.stampSelection = null;
+      releaseCanvasPointer(event);
+      drawGrid();
+    });
+
+    el.gridCanvas.addEventListener('pointerleave', () => {
+      if (!painting && !selectingStamp && state.stampHover) {
+        state.stampHover = null;
+        drawGrid();
+      }
+    });
+
+    ensurePaletteSize();
+    state.frames.push(blankFrame());
+    syncInputsFromState();
+    renderAll();
+    exportProjectJson();
+    generate();
+  </script>
+</body>
+</html>

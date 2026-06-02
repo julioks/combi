@@ -1,0 +1,3327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manchester LED Video Encoder</title>
+  <style>
+    :root {
+      --bg: #111214;
+      --panel: #181a1d;
+      --panel-2: #202328;
+      --panel-3: #272b31;
+      --text: #eef1f4;
+      --muted: #a3abb5;
+      --border: #333942;
+      --accent: #61d2c5;
+      --accent-2: #f1c766;
+      --danger: #ff7d7d;
+      --ok: #78dd91;
+      --shadow: rgba(0, 0, 0, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      width: min(1500px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.45rem, 2vw, 2rem);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 650;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 360px minmax(420px, 1fr) 390px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 12px 30px var(--shadow);
+      padding: 14px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .row.three {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      min-width: 0;
+      font: inherit;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    input,
+    select,
+    textarea {
+      padding: 9px 10px;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(97, 210, 197, 0.16);
+    }
+
+    input[type="color"] {
+      height: 38px;
+      padding: 3px;
+      cursor: pointer;
+    }
+
+    input[type="file"] {
+      padding: 8px 10px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 170px;
+      resize: vertical;
+      line-height: 1.4;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 0.86rem;
+    }
+
+    button {
+      padding: 9px 11px;
+      cursor: pointer;
+      transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button.primary {
+      background: #21413e;
+      border-color: #468c84;
+    }
+
+    button.warn {
+      background: #40351e;
+      border-color: #806932;
+    }
+
+    button.danger {
+      background: #442427;
+      border-color: #87444a;
+    }
+
+    button.small {
+      padding: 7px 9px;
+      font-size: 0.84rem;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 10px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+    }
+
+    .check input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 0.9rem;
+      min-height: 1.3em;
+      text-align: right;
+    }
+
+    .status.ok {
+      color: var(--ok);
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .stat {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+    }
+
+    .stat .k {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 3px;
+    }
+
+    .stat .v {
+      display: block;
+      font-size: 1rem;
+      font-weight: 650;
+      word-break: break-word;
+    }
+
+    .frameBar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .canvasShell {
+      width: 100%;
+      overflow: auto;
+      background: #0e0f11;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .canvasShell canvas {
+      display: block;
+      width: min(720px, 100%);
+      aspect-ratio: 1;
+      background: #0b0c0d;
+      border-radius: 4px;
+      image-rendering: pixelated;
+      touch-action: none;
+    }
+
+    #waveCanvas {
+      display: block;
+      width: 100%;
+      height: 220px;
+      background: #0e0f11;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    #mediaPreviewCanvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #0e0f11;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      image-rendering: pixelated;
+    }
+
+    .progressTrack {
+      height: 8px;
+      overflow: hidden;
+      background: #0e0f11;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+
+    .progressBar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.12s ease;
+    }
+
+    audio {
+      width: 100%;
+    }
+
+    .paletteGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+      gap: 6px;
+      max-height: 230px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .swatch {
+      height: 34px;
+      padding: 0;
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .swatch.selected {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 2px rgba(241, 199, 102, 0.28);
+    }
+
+    .swatch span {
+      position: absolute;
+      left: 4px;
+      bottom: 2px;
+      color: white;
+      font-size: 0.7rem;
+      text-shadow: 0 1px 2px black;
+    }
+
+    .updates {
+      display: grid;
+      gap: 8px;
+    }
+
+    .updateRow {
+      display: grid;
+      grid-template-columns: 74px 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    pre {
+      margin: 0;
+      padding: 10px;
+      min-height: 140px;
+      max-height: 280px;
+      overflow: auto;
+      color: #dfe7ec;
+      background: #0e0f11;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+      font-size: 0.84rem;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    @media (max-width: 1220px) {
+      .app {
+        grid-template-columns: 330px 1fr;
+      }
+
+      .right {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 780px) {
+      .wrap {
+        padding: 12px;
+      }
+
+      header {
+        display: grid;
+        align-items: start;
+      }
+
+      .status {
+        text-align: left;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .row,
+      .row.three,
+      .frameBar {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Manchester LED video encoder</h1>
+      <div id="status" class="status">Ready.</div>
+    </header>
+
+    <main class="app">
+      <section class="stack">
+        <section class="panel">
+          <h2>Protocol</h2>
+          <div class="controls">
+            <div class="row three">
+              <label>
+                Width byte
+                <input id="widthByte" type="number" min="0" max="255" step="1" value="8" />
+              </label>
+              <label>
+                Height byte
+                <input id="heightByte" type="number" min="0" max="255" step="1" value="8" />
+              </label>
+              <label>
+                BPP
+                <select id="bpp">
+                  <option value="0">0 RGB</option>
+                  <option value="1">1 indexed</option>
+                  <option value="2" selected>2 indexed</option>
+                  <option value="3">3 indexed</option>
+                  <option value="4">4 indexed</option>
+                  <option value="5">5 indexed</option>
+                  <option value="6">6 indexed</option>
+                  <option value="7">7 indexed</option>
+                  <option value="8">8 indexed</option>
+                </select>
+              </label>
+            </div>
+            <div class="buttons">
+              <button id="applyGridBtn" class="primary">Apply grid</button>
+            </div>
+            <div class="row">
+              <label>
+                Brightness limit %
+                <input id="brightnessLimit" type="number" min="0" max="100" step="1" value="15" />
+              </label>
+              <label class="check">
+                <input id="ledColorProfile" type="checkbox" checked />
+                WS2812-aware matching
+              </label>
+            </div>
+            <div class="stats">
+              <div class="stat"><span class="k">Actual grid</span><span class="v" id="actualGrid">8 x 8</span></div>
+              <div class="stat"><span class="k">Pixels</span><span class="v" id="pixelCount">64</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Video / GIF Import</h2>
+          <div class="controls">
+            <label>
+              Source file
+              <input id="mediaFile" type="file" accept="image/*,video/*,.gif,.webp,.mp4,.webm,.mov,.m4v" />
+            </label>
+            <div class="row three">
+              <label>
+                Sample FPS
+                <input id="mediaFps" type="number" min="0.001" max="240" step="0.001" value="6" />
+              </label>
+              <label>
+                Frame limit
+                <input id="mediaMaxFrames" type="number" min="0" step="1" value="0" placeholder="0 = all" />
+              </label>
+              <label>
+                Fit
+                <select id="mediaFit">
+                  <option value="cover" selected>Cover</option>
+                  <option value="contain">Contain</option>
+                  <option value="stretch">Stretch</option>
+                </select>
+              </label>
+            </div>
+            <label class="check">
+              <input id="autoSyncFps" type="checkbox" checked />
+              Auto sync FPS to video runtime
+            </label>
+            <div class="row">
+              <label>
+                Palette strategy
+                <select id="paletteStrategy">
+                  <option value="global" selected>Global best</option>
+                  <option value="adaptive">Per frame</option>
+                </select>
+              </label>
+              <label>
+                Color mood
+                <select id="mediaColorMood">
+                  <option value="normal" selected>Normal</option>
+                  <option value="vivid">Vivid</option>
+                  <option value="punchy">Punchy</option>
+                  <option value="soft">Soft</option>
+                </select>
+              </label>
+            </div>
+            <label class="check">
+              <input id="mediaDither" type="checkbox" checked />
+              Dither indexed frames
+            </label>
+            <div class="buttons">
+              <button id="importMediaBtn" class="primary">Convert to frames</button>
+              <button id="clearMediaBtn">Clear file</button>
+            </div>
+            <div class="progressTrack">
+              <div id="mediaProgress" class="progressBar"></div>
+            </div>
+            <canvas id="mediaPreviewCanvas" width="320" height="180"></canvas>
+            <div id="mediaInfo" class="muted">No file selected.</div>
+          </div>
+        </section>
+
+        <section id="palettePanel" class="panel">
+          <h2>Palette</h2>
+          <div class="controls">
+            <div class="paletteGrid" id="paletteGrid"></div>
+            <div class="row">
+              <label>
+                Base color
+                <input id="basePaletteColor" type="color" value="#ffffff" />
+              </label>
+              <label>
+                Selected index
+                <input id="selectedPaletteIndex" type="number" min="0" max="3" step="1" value="1" />
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section id="directPaintPanel" class="panel hidden">
+          <h2>RGB Paint</h2>
+          <label>
+            Paint color
+            <input id="directPaintColor" type="color" value="#ffffff" />
+          </label>
+        </section>
+
+        <section id="updatesPanel" class="panel">
+          <h2>Frame Palette Updates</h2>
+          <div class="controls">
+            <div id="paletteUpdates" class="updates"></div>
+            <div class="buttons">
+              <button id="addUpdateBtn">Add update</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="stack">
+        <section class="panel">
+          <div class="frameBar">
+            <label>
+              Frame
+              <select id="frameSelect"></select>
+            </label>
+            <div class="buttons">
+              <button id="addFrameBtn">Add</button>
+              <button id="duplicateFrameBtn">Duplicate</button>
+              <button id="deleteFrameBtn" class="danger">Delete</button>
+            </div>
+          </div>
+          <div class="canvasShell">
+            <canvas id="gridCanvas" width="720" height="720"></canvas>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Project JSON</h2>
+          <textarea id="projectJson"></textarea>
+          <div class="buttons">
+            <button id="exportJsonBtn">Export JSON</button>
+            <button id="loadJsonBtn">Load JSON</button>
+          </div>
+        </section>
+      </section>
+
+      <section class="stack right">
+        <section class="panel">
+          <h2>Audio</h2>
+          <div class="controls">
+            <div class="row">
+              <label>
+                Data bit rate
+                <input id="bitRate" type="number" min="1" step="1" value="300" />
+              </label>
+              <label>
+                Sample rate
+                <input id="sampleRate" type="number" min="8000" step="1000" value="44100" />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Amplitude
+                <input id="amplitude" type="number" min="0.01" max="1" step="0.01" value="0.75" />
+              </label>
+              <label>
+                Convention
+                <select id="convention">
+                  <option value="ieee">IEEE 802.3</option>
+                  <option value="thomas">Thomas / reverse</option>
+                </select>
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Start silence ms
+                <input id="startSilence" type="number" min="0" step="10" value="150" />
+              </label>
+              <label>
+                End silence ms
+                <input id="endSilence" type="number" min="0" step="10" value="250" />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Preamble 0x55 bytes
+                <input id="preambleCount" type="number" min="0" step="1" value="16" />
+              </label>
+              <label class="check">
+                <input id="includeSync" type="checkbox" checked />
+                Sync byte 0xD5
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Resync every N frames
+                <input id="resyncEveryFrames" type="number" min="0" step="1" value="1" />
+              </label>
+              <label>
+                Resync guard bits
+                <input id="resyncGuardBits" type="number" min="2" step="1" value="8" />
+              </label>
+            </div>
+            <label class="check">
+              <input id="smoothEdges" type="checkbox" checked />
+              Smooth edges
+            </label>
+            <div class="row">
+              <label class="check">
+                <input id="includeSourceAudio" type="checkbox" checked />
+                Save source audio
+              </label>
+              <label>
+                Channel layout
+                <select id="channelLayout">
+                  <option value="data-left" selected>Data left / audio right</option>
+                  <option value="audio-left">Audio left / data right</option>
+                </select>
+              </label>
+            </div>
+            <div class="buttons">
+              <button id="generateBtn" class="primary">Generate audio</button>
+              <button id="playBtn">Play / pause</button>
+              <button id="downloadBtn">Download WAV</button>
+            </div>
+            <audio id="player" controls></audio>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Signal Stats</h2>
+          <div class="stats">
+            <div class="stat"><span class="k">Frames</span><span class="v" id="frameCount">1</span></div>
+            <div class="stat"><span class="k">Protocol bits</span><span class="v" id="protocolBits">0</span></div>
+            <div class="stat"><span class="k">Tail bits</span><span class="v" id="tailBits">0</span></div>
+            <div class="stat"><span class="k">Signal bits</span><span class="v" id="totalBits">0</span></div>
+            <div class="stat"><span class="k">Duration</span><span class="v" id="duration">0 s</span></div>
+            <div class="stat"><span class="k">Samples</span><span class="v" id="sampleCount">0</span></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Waveform</h2>
+          <canvas id="waveCanvas" width="900" height="240"></canvas>
+        </section>
+
+        <section class="panel">
+          <h2>Bit Preview</h2>
+          <pre id="preview">Nothing generated yet.</pre>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const MAX_GRID_PIXELS = 16384;
+    const MAX_AUTO_SYNC_FRAMES = 20000;
+
+    const el = {
+      status: document.getElementById('status'),
+      widthByte: document.getElementById('widthByte'),
+      heightByte: document.getElementById('heightByte'),
+      bpp: document.getElementById('bpp'),
+      applyGridBtn: document.getElementById('applyGridBtn'),
+      brightnessLimit: document.getElementById('brightnessLimit'),
+      ledColorProfile: document.getElementById('ledColorProfile'),
+      actualGrid: document.getElementById('actualGrid'),
+      pixelCount: document.getElementById('pixelCount'),
+      mediaFile: document.getElementById('mediaFile'),
+      mediaFps: document.getElementById('mediaFps'),
+      mediaMaxFrames: document.getElementById('mediaMaxFrames'),
+      mediaFit: document.getElementById('mediaFit'),
+      autoSyncFps: document.getElementById('autoSyncFps'),
+      paletteStrategy: document.getElementById('paletteStrategy'),
+      mediaColorMood: document.getElementById('mediaColorMood'),
+      mediaDither: document.getElementById('mediaDither'),
+      importMediaBtn: document.getElementById('importMediaBtn'),
+      clearMediaBtn: document.getElementById('clearMediaBtn'),
+      mediaProgress: document.getElementById('mediaProgress'),
+      mediaPreviewCanvas: document.getElementById('mediaPreviewCanvas'),
+      mediaInfo: document.getElementById('mediaInfo'),
+      palettePanel: document.getElementById('palettePanel'),
+      paletteGrid: document.getElementById('paletteGrid'),
+      basePaletteColor: document.getElementById('basePaletteColor'),
+      selectedPaletteIndex: document.getElementById('selectedPaletteIndex'),
+      directPaintPanel: document.getElementById('directPaintPanel'),
+      directPaintColor: document.getElementById('directPaintColor'),
+      updatesPanel: document.getElementById('updatesPanel'),
+      paletteUpdates: document.getElementById('paletteUpdates'),
+      addUpdateBtn: document.getElementById('addUpdateBtn'),
+      frameSelect: document.getElementById('frameSelect'),
+      addFrameBtn: document.getElementById('addFrameBtn'),
+      duplicateFrameBtn: document.getElementById('duplicateFrameBtn'),
+      deleteFrameBtn: document.getElementById('deleteFrameBtn'),
+      gridCanvas: document.getElementById('gridCanvas'),
+      projectJson: document.getElementById('projectJson'),
+      exportJsonBtn: document.getElementById('exportJsonBtn'),
+      loadJsonBtn: document.getElementById('loadJsonBtn'),
+      bitRate: document.getElementById('bitRate'),
+      sampleRate: document.getElementById('sampleRate'),
+      amplitude: document.getElementById('amplitude'),
+      convention: document.getElementById('convention'),
+      startSilence: document.getElementById('startSilence'),
+      endSilence: document.getElementById('endSilence'),
+      preambleCount: document.getElementById('preambleCount'),
+      includeSync: document.getElementById('includeSync'),
+      resyncEveryFrames: document.getElementById('resyncEveryFrames'),
+      resyncGuardBits: document.getElementById('resyncGuardBits'),
+      smoothEdges: document.getElementById('smoothEdges'),
+      includeSourceAudio: document.getElementById('includeSourceAudio'),
+      channelLayout: document.getElementById('channelLayout'),
+      generateBtn: document.getElementById('generateBtn'),
+      playBtn: document.getElementById('playBtn'),
+      downloadBtn: document.getElementById('downloadBtn'),
+      player: document.getElementById('player'),
+      frameCount: document.getElementById('frameCount'),
+      protocolBits: document.getElementById('protocolBits'),
+      tailBits: document.getElementById('tailBits'),
+      totalBits: document.getElementById('totalBits'),
+      duration: document.getElementById('duration'),
+      sampleCount: document.getElementById('sampleCount'),
+      waveCanvas: document.getElementById('waveCanvas'),
+      preview: document.getElementById('preview'),
+    };
+
+    const state = {
+      widthByte: 8,
+      heightByte: 8,
+      bpp: 2,
+      palette: [],
+      frames: [],
+      currentFrame: 0,
+      selectedPaletteIndex: 1,
+      directPaintColor: { r: 255, g: 255, b: 255 },
+    };
+
+    let currentBlobUrl = null;
+    let currentBlob = null;
+    let currentMeta = null;
+    let currentSourceAudio = null;
+    let painting = false;
+    let mediaBusy = false;
+    let selectedMediaMeta = null;
+    let mediaInfoToken = 0;
+
+    function setStatus(message, type = '') {
+      el.status.textContent = message;
+      el.status.className = `status ${type}`.trim();
+    }
+
+    function clamp(v, lo, hi) {
+      return Math.max(lo, Math.min(hi, v));
+    }
+
+    function clampInt(value, lo, hi, fallback) {
+      const parsed = parseInt(value, 10);
+      if (!Number.isFinite(parsed)) return fallback;
+      return clamp(parsed, lo, hi);
+    }
+
+    function actualDim(byteValue) {
+      return byteValue === 0 ? 1 : byteValue;
+    }
+
+    function actualWidth() {
+      return actualDim(state.widthByte);
+    }
+
+    function actualHeight() {
+      return actualDim(state.heightByte);
+    }
+
+    function pixelCount() {
+      return actualWidth() * actualHeight();
+    }
+
+    function paletteCount() {
+      return state.bpp > 0 ? (1 << state.bpp) : 0;
+    }
+
+    function copyRgb(color) {
+      return { r: color.r & 255, g: color.g & 255, b: color.b & 255 };
+    }
+
+    function brightnessLimitPercent() {
+      const parsed = parseFloat(el.brightnessLimit.value);
+      return clamp(Number.isFinite(parsed) ? parsed : 100, 0, 100);
+    }
+
+    function ledColorProfileEnabled() {
+      return Boolean(el.ledColorProfile && el.ledColorProfile.checked);
+    }
+
+    function rgbToHsv(color) {
+      const r = clamp(color.r, 0, 255) / 255;
+      const g = clamp(color.g, 0, 255) / 255;
+      const b = clamp(color.b, 0, 255) / 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const delta = max - min;
+      let h = 0;
+
+      if (delta > 0) {
+        if (max === r) {
+          h = 60 * (((g - b) / delta) % 6);
+        } else if (max === g) {
+          h = 60 * ((b - r) / delta + 2);
+        } else {
+          h = 60 * ((r - g) / delta + 4);
+        }
+      }
+
+      if (h < 0) h += 360;
+      return {
+        h,
+        s: max === 0 ? 0 : delta / max,
+        v: max,
+      };
+    }
+
+    function hsvToRgb(h, s, v) {
+      const c = v * s;
+      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+      const m = v - c;
+      let r = 0;
+      let g = 0;
+      let b = 0;
+
+      if (h < 60) {
+        r = c; g = x;
+      } else if (h < 120) {
+        r = x; g = c;
+      } else if (h < 180) {
+        g = c; b = x;
+      } else if (h < 240) {
+        g = x; b = c;
+      } else if (h < 300) {
+        r = x; b = c;
+      } else {
+        r = c; b = x;
+      }
+
+      return {
+        r: clampByte((r + m) * 255),
+        g: clampByte((g + m) * 255),
+        b: clampByte((b + m) * 255),
+      };
+    }
+
+    function shapeRgbForWs2812(color) {
+      const hsv = rgbToHsv(color);
+      if (hsv.v < 0.035) {
+        return { r: 0, g: 0, b: 0 };
+      }
+
+      if (hsv.s < 0.12) {
+        if (hsv.v < 0.42) {
+          return { r: 0, g: 0, b: 0 };
+        }
+
+        const white = clampByte(Math.pow(hsv.v, 0.78) * 255);
+        return { r: white, g: white, b: white };
+      }
+
+      let s = clamp(hsv.s + (1 - hsv.s) * 0.55, 0, 1);
+      let v = clamp(Math.pow(hsv.v, 0.78), 0, 1);
+
+      if (hsv.h >= 18 && hsv.h <= 62 && hsv.v < 0.58) {
+        s = Math.max(s, 0.9);
+        v = Math.max(v, 0.58);
+      }
+
+      const shaped = hsvToRgb(hsv.h, s, v);
+      return {
+        r: clampByte(shaped.r * 1.06),
+        g: clampByte(shaped.g * 0.76),
+        b: clampByte(shaped.b * 0.96),
+      };
+    }
+
+    function quantizeProfileChannel(value, scale) {
+      const scaled = value * scale;
+      if (scaled < 1.15) {
+        return 0;
+      }
+
+      const maxOut = 255 * scale;
+      const step = maxOut <= 40 ? 2 : 1;
+      return clampByte(Math.round(scaled / step) * step);
+    }
+
+    function limitRgb(color) {
+      const scale = brightnessLimitPercent() / 100;
+      if (scale >= 0.999) return copyRgb(color);
+
+      return {
+        r: clampByte(color.r * scale),
+        g: clampByte(color.g * scale),
+        b: clampByte(color.b * scale),
+      };
+    }
+
+    function simulatedLedRgb(color) {
+      if (!ledColorProfileEnabled()) {
+        return limitRgb(color);
+      }
+
+      const scale = brightnessLimitPercent() / 100;
+      const shaped = shapeRgbForWs2812(color);
+      return {
+        r: quantizeProfileChannel(shaped.r, scale),
+        g: quantizeProfileChannel(shaped.g, scale),
+        b: quantizeProfileChannel(shaped.b, scale),
+      };
+    }
+
+    function ledOutputDistance(a, b) {
+      const aa = simulatedLedRgb(a);
+      const bb = simulatedLedRgb(b);
+      const dr = aa.r - bb.r;
+      const dg = aa.g - bb.g;
+      const db = aa.b - bb.b;
+      return dr * dr * 2 + dg * dg * 3 + db * db * 2;
+    }
+
+    function rgbToHex(color) {
+      const r = color.r.toString(16).padStart(2, '0');
+      const g = color.g.toString(16).padStart(2, '0');
+      const b = color.b.toString(16).padStart(2, '0');
+      return `#${r}${g}${b}`;
+    }
+
+    function hexToRgb(hex) {
+      const cleaned = String(hex || '').trim().replace(/^#/, '');
+      if (!/^[0-9a-fA-F]{6}$/.test(cleaned)) {
+        return { r: 0, g: 0, b: 0 };
+      }
+
+      return {
+        r: parseInt(cleaned.slice(0, 2), 16),
+        g: parseInt(cleaned.slice(2, 4), 16),
+        b: parseInt(cleaned.slice(4, 6), 16),
+      };
+    }
+
+    function hslToRgb(h, s, l) {
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const hp = h / 60;
+      const x = c * (1 - Math.abs((hp % 2) - 1));
+      let r1 = 0;
+      let g1 = 0;
+      let b1 = 0;
+
+      if (hp >= 0 && hp < 1) {
+        r1 = c; g1 = x;
+      } else if (hp < 2) {
+        r1 = x; g1 = c;
+      } else if (hp < 3) {
+        g1 = c; b1 = x;
+      } else if (hp < 4) {
+        g1 = x; b1 = c;
+      } else if (hp < 5) {
+        r1 = x; b1 = c;
+      } else {
+        r1 = c; b1 = x;
+      }
+
+      const m = l - c / 2;
+      return {
+        r: Math.round((r1 + m) * 255),
+        g: Math.round((g1 + m) * 255),
+        b: Math.round((b1 + m) * 255),
+      };
+    }
+
+    function defaultPaletteEntry(index, count) {
+      if (index === 0) return { r: 0, g: 0, b: 0 };
+      if (count === 2) return { r: 255, g: 255, b: 255 };
+      const hue = ((index - 1) * 300) / Math.max(1, count - 1);
+      return hslToRgb(hue, 0.78, 0.55);
+    }
+
+    function ensurePaletteSize() {
+      const count = paletteCount();
+      if (count === 0) return;
+
+      while (state.palette.length < count) {
+        state.palette.push(defaultPaletteEntry(state.palette.length, count));
+      }
+
+      if (state.palette.length > count) {
+        state.palette.length = count;
+      }
+
+      state.selectedPaletteIndex = clamp(state.selectedPaletteIndex, 0, count - 1);
+    }
+
+    function blankFrame() {
+      const n = pixelCount();
+      return {
+        pixels: Array(n).fill(0),
+        colors: Array.from({ length: n }, () => ({ r: 0, g: 0, b: 0 })),
+        paletteUpdates: [],
+      };
+    }
+
+    function resizeIndexedPixels(oldPixels, oldW, oldH, newW, newH) {
+      const out = Array(newW * newH).fill(0);
+      const copyW = Math.min(oldW, newW);
+      const copyH = Math.min(oldH, newH);
+
+      for (let y = 0; y < copyH; y++) {
+        for (let x = 0; x < copyW; x++) {
+          out[y * newW + x] = oldPixels[y * oldW + x] || 0;
+        }
+      }
+
+      return out;
+    }
+
+    function resizeRgbPixels(oldColors, oldW, oldH, newW, newH) {
+      const out = Array.from({ length: newW * newH }, () => ({ r: 0, g: 0, b: 0 }));
+      const copyW = Math.min(oldW, newW);
+      const copyH = Math.min(oldH, newH);
+
+      for (let y = 0; y < copyH; y++) {
+        for (let x = 0; x < copyW; x++) {
+          const source = oldColors[y * oldW + x] || { r: 0, g: 0, b: 0 };
+          out[y * newW + x] = copyRgb(source);
+        }
+      }
+
+      return out;
+    }
+
+    function normalizeFrames() {
+      if (state.frames.length === 0) {
+        state.frames.push(blankFrame());
+      }
+
+      const n = pixelCount();
+      const maxIndex = Math.max(0, paletteCount() - 1);
+
+      for (const frame of state.frames) {
+        if (!Array.isArray(frame.pixels)) frame.pixels = [];
+        if (!Array.isArray(frame.colors)) frame.colors = [];
+        if (!Array.isArray(frame.paletteUpdates)) frame.paletteUpdates = [];
+
+        while (frame.pixels.length < n) frame.pixels.push(0);
+        if (frame.pixels.length > n) frame.pixels.length = n;
+        frame.pixels = frame.pixels.map(v => clampInt(v, 0, maxIndex, 0));
+
+        while (frame.colors.length < n) frame.colors.push({ r: 0, g: 0, b: 0 });
+        if (frame.colors.length > n) frame.colors.length = n;
+        frame.colors = frame.colors.map(copyRgb);
+
+        frame.paletteUpdates = frame.paletteUpdates
+          .slice(0, 255)
+          .map(update => ({
+            index: clampInt(update.index, 0, maxIndex, 0),
+            color: copyRgb(update.color || { r: 0, g: 0, b: 0 }),
+          }));
+      }
+
+      state.currentFrame = clamp(state.currentFrame, 0, state.frames.length - 1);
+    }
+
+    function currentFrame() {
+      normalizeFrames();
+      return state.frames[state.currentFrame];
+    }
+
+    function paletteForFrame(frameIndex) {
+      const count = paletteCount();
+      const palette = state.palette.slice(0, count).map(copyRgb);
+
+      for (let i = 0; i <= frameIndex && i < state.frames.length; i++) {
+        for (const update of state.frames[i].paletteUpdates || []) {
+          if (update.index >= 0 && update.index < count) {
+            palette[update.index] = copyRgb(update.color);
+          }
+        }
+      }
+
+      return palette;
+    }
+
+    function nearestPaletteIndex(color, palette, limit = palette.length) {
+      let bestIndex = 0;
+      let bestDistance = Infinity;
+      const usable = Math.max(1, Math.min(limit, palette.length));
+
+      for (let i = 0; i < usable; i++) {
+        const distance = ledOutputDistance(color, palette[i]);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = i;
+        }
+      }
+
+      return bestIndex;
+    }
+
+    function applyGrid() {
+      const oldW = actualWidth();
+      const oldH = actualHeight();
+      const newWidthByte = clampInt(el.widthByte.value, 0, 255, state.widthByte);
+      const newHeightByte = clampInt(el.heightByte.value, 0, 255, state.heightByte);
+      const newW = actualDim(newWidthByte);
+      const newH = actualDim(newHeightByte);
+
+      if (newW * newH > MAX_GRID_PIXELS) {
+        el.widthByte.value = state.widthByte;
+        el.heightByte.value = state.heightByte;
+        setStatus(`Grid is too large. Max is ${MAX_GRID_PIXELS} pixels.`, 'error');
+        return;
+      }
+
+      state.widthByte = newWidthByte;
+      state.heightByte = newHeightByte;
+
+      for (const frame of state.frames) {
+        frame.pixels = resizeIndexedPixels(frame.pixels || [], oldW, oldH, newW, newH);
+        frame.colors = resizeRgbPixels(frame.colors || [], oldW, oldH, newW, newH);
+      }
+
+      normalizeFrames();
+      renderAll();
+      setStatus('Grid updated.', 'ok');
+      refreshAutoSyncFromSelection();
+    }
+
+    function applyBpp() {
+      const nextBpp = clampInt(el.bpp.value, 0, 8, state.bpp);
+      if (nextBpp === state.bpp) return;
+
+      const oldBpp = state.bpp;
+
+      if (oldBpp > 0 && nextBpp === 0) {
+        for (let i = 0; i < state.frames.length; i++) {
+          const palette = paletteForFrame(i);
+          state.frames[i].colors = state.frames[i].pixels.map(index => copyRgb(palette[index] || { r: 0, g: 0, b: 0 }));
+        }
+      }
+
+      state.bpp = nextBpp;
+      ensurePaletteSize();
+
+      if (oldBpp === 0 && nextBpp > 0) {
+        const palette = state.palette.slice(0, paletteCount());
+        for (const frame of state.frames) {
+          frame.pixels = frame.colors.map(color => nearestPaletteIndex(color, palette));
+        }
+      }
+
+      normalizeFrames();
+      renderAll();
+      setStatus('BPP updated.', 'ok');
+      refreshAutoSyncFromSelection();
+    }
+
+    function renderFrameSelect() {
+      el.frameSelect.innerHTML = '';
+
+      state.frames.forEach((_, index) => {
+        const option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = `Frame ${index + 1}`;
+        el.frameSelect.appendChild(option);
+      });
+
+      el.frameSelect.value = String(state.currentFrame);
+      el.deleteFrameBtn.disabled = state.frames.length <= 1;
+    }
+
+    function renderPalette() {
+      const indexed = state.bpp > 0;
+      el.palettePanel.classList.toggle('hidden', !indexed);
+      el.directPaintPanel.classList.toggle('hidden', indexed);
+      el.updatesPanel.classList.toggle('hidden', !indexed);
+
+      if (!indexed) {
+        return;
+      }
+
+      const effectivePalette = paletteForFrame(state.currentFrame);
+      const count = paletteCount();
+      el.paletteGrid.innerHTML = '';
+      el.selectedPaletteIndex.max = String(Math.max(0, count - 1));
+      el.selectedPaletteIndex.value = String(state.selectedPaletteIndex);
+      el.basePaletteColor.value = rgbToHex(state.palette[state.selectedPaletteIndex] || { r: 0, g: 0, b: 0 });
+
+      for (let i = 0; i < count; i++) {
+        const button = document.createElement('button');
+        button.className = `swatch ${i === state.selectedPaletteIndex ? 'selected' : ''}`;
+        button.style.background = rgbToHex(effectivePalette[i]);
+        button.title = `Index ${i}`;
+        button.type = 'button';
+        button.addEventListener('click', () => {
+          state.selectedPaletteIndex = i;
+          renderAll();
+        });
+
+        const label = document.createElement('span');
+        label.textContent = String(i);
+        button.appendChild(label);
+        el.paletteGrid.appendChild(button);
+      }
+    }
+
+    function renderPaletteUpdates() {
+      el.paletteUpdates.innerHTML = '';
+
+      if (state.bpp === 0) return;
+
+      const frame = currentFrame();
+      const count = paletteCount();
+
+      if (frame.paletteUpdates.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'muted';
+        empty.textContent = 'No palette updates for this frame.';
+        el.paletteUpdates.appendChild(empty);
+        return;
+      }
+
+      frame.paletteUpdates.forEach((update, rowIndex) => {
+        const row = document.createElement('div');
+        row.className = 'updateRow';
+
+        const indexInput = document.createElement('input');
+        indexInput.type = 'number';
+        indexInput.min = '0';
+        indexInput.max = String(Math.max(0, count - 1));
+        indexInput.step = '1';
+        indexInput.value = String(update.index);
+        indexInput.addEventListener('change', () => {
+          update.index = clampInt(indexInput.value, 0, count - 1, update.index);
+          renderAll();
+        });
+
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.value = rgbToHex(update.color);
+        colorInput.addEventListener('input', () => {
+          update.color = hexToRgb(colorInput.value);
+          drawGrid();
+          renderPalette();
+        });
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'small danger';
+        deleteButton.textContent = 'Delete';
+        deleteButton.addEventListener('click', () => {
+          frame.paletteUpdates.splice(rowIndex, 1);
+          renderAll();
+        });
+
+        row.appendChild(indexInput);
+        row.appendChild(colorInput);
+        row.appendChild(deleteButton);
+        el.paletteUpdates.appendChild(row);
+      });
+    }
+
+    function gridLayout() {
+      const canvas = el.gridCanvas;
+      const w = actualWidth();
+      const h = actualHeight();
+      const pad = 8;
+      const availableW = canvas.width - pad * 2;
+      const availableH = canvas.height - pad * 2;
+      const scale = Math.max(1, Math.floor(Math.min(availableW / w, availableH / h)));
+      const gridW = scale * w;
+      const gridH = scale * h;
+      return {
+        x: Math.floor((canvas.width - gridW) / 2),
+        y: Math.floor((canvas.height - gridH) / 2),
+        cell: scale,
+        gridW,
+        gridH,
+      };
+    }
+
+    function drawGrid() {
+      const canvas = el.gridCanvas;
+      const ctx = canvas.getContext('2d');
+      const w = actualWidth();
+      const h = actualHeight();
+      const frame = currentFrame();
+      const layout = gridLayout();
+      const effectivePalette = state.bpp > 0 ? paletteForFrame(state.currentFrame) : null;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0b0c0d';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const index = y * w + x;
+          const color = state.bpp > 0
+            ? effectivePalette[frame.pixels[index]] || { r: 0, g: 0, b: 0 }
+            : frame.colors[index] || { r: 0, g: 0, b: 0 };
+          ctx.fillStyle = rgbToHex(color);
+          ctx.fillRect(
+            layout.x + x * layout.cell,
+            layout.y + y * layout.cell,
+            layout.cell,
+            layout.cell
+          );
+        }
+      }
+
+      if (layout.cell >= 7) {
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= w; x++) {
+          const px = layout.x + x * layout.cell + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(px, layout.y);
+          ctx.lineTo(px, layout.y + layout.gridH);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= h; y++) {
+          const py = layout.y + y * layout.cell + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(layout.x, py);
+          ctx.lineTo(layout.x + layout.gridW, py);
+          ctx.stroke();
+        }
+      }
+
+      ctx.strokeStyle = '#59616c';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(layout.x, layout.y, layout.gridW, layout.gridH);
+    }
+
+    function paintFromEvent(event) {
+      const rect = el.gridCanvas.getBoundingClientRect();
+      const scaleX = el.gridCanvas.width / rect.width;
+      const scaleY = el.gridCanvas.height / rect.height;
+      const x = (event.clientX - rect.left) * scaleX;
+      const y = (event.clientY - rect.top) * scaleY;
+      const layout = gridLayout();
+      const gx = Math.floor((x - layout.x) / layout.cell);
+      const gy = Math.floor((y - layout.y) / layout.cell);
+
+      if (gx < 0 || gy < 0 || gx >= actualWidth() || gy >= actualHeight()) {
+        return;
+      }
+
+      const frame = currentFrame();
+      const index = gy * actualWidth() + gx;
+
+      if (state.bpp > 0) {
+        frame.pixels[index] = state.selectedPaletteIndex;
+      } else {
+        frame.colors[index] = copyRgb(state.directPaintColor);
+      }
+
+      drawGrid();
+    }
+
+    function addFrame() {
+      state.frames.push(blankFrame());
+      state.currentFrame = state.frames.length - 1;
+      renderAll();
+      setStatus('Frame added.', 'ok');
+    }
+
+    function duplicateFrame() {
+      const source = currentFrame();
+      state.frames.splice(state.currentFrame + 1, 0, {
+        pixels: source.pixels.slice(),
+        colors: source.colors.map(copyRgb),
+        paletteUpdates: source.paletteUpdates.map(update => ({
+          index: update.index,
+          color: copyRgb(update.color),
+        })),
+      });
+      state.currentFrame++;
+      renderAll();
+      setStatus('Frame duplicated.', 'ok');
+    }
+
+    function deleteFrame() {
+      if (state.frames.length <= 1) {
+        state.frames[0] = blankFrame();
+        renderAll();
+        return;
+      }
+
+      state.frames.splice(state.currentFrame, 1);
+      state.currentFrame = clamp(state.currentFrame, 0, state.frames.length - 1);
+      renderAll();
+      setStatus('Frame deleted.', 'ok');
+    }
+
+    function addPaletteUpdate() {
+      if (state.bpp === 0) return;
+      const frame = currentFrame();
+      if (frame.paletteUpdates.length >= 255) {
+        setStatus('A frame can encode at most 255 palette updates.', 'error');
+        return;
+      }
+
+      const effectivePalette = paletteForFrame(state.currentFrame);
+      const index = state.selectedPaletteIndex;
+      frame.paletteUpdates.push({
+        index,
+        color: copyRgb(effectivePalette[index] || { r: 0, g: 0, b: 0 }),
+      });
+      renderAll();
+      setStatus('Palette update added.', 'ok');
+    }
+
+    function nextPaint() {
+      return new Promise(resolve => requestAnimationFrame(resolve));
+    }
+
+    function setMediaBusy(busy) {
+      mediaBusy = busy;
+      el.importMediaBtn.disabled = busy;
+      el.clearMediaBtn.disabled = busy;
+      el.mediaFile.disabled = busy;
+    }
+
+    function updateMediaProgress(value, message) {
+      el.mediaProgress.style.width = `${Math.round(clamp(value, 0, 1) * 100)}%`;
+      if (message) {
+        el.mediaInfo.textContent = message;
+      }
+    }
+
+    function readMediaSettings() {
+      const frameLimit = parseInt(el.mediaMaxFrames.value, 10);
+      return {
+        fps: clamp(parseFloat(el.mediaFps.value) || 6, 0.001, 240),
+        maxFrames: Number.isFinite(frameLimit) && frameLimit > 0 ? frameLimit : Infinity,
+        fit: el.mediaFit.value,
+        autoSyncFps: el.autoSyncFps.checked,
+        targetFrameCount: null,
+        autoSynced: false,
+        syncPlan: null,
+        sourceDuration: 0,
+        paletteStrategy: el.paletteStrategy.value,
+        colorMood: el.mediaColorMood.value,
+        dither: el.mediaDither.checked,
+      };
+    }
+
+    function formatFps(value) {
+      if (!Number.isFinite(value) || value <= 0) return '6';
+      const fixed = value >= 100 ? value.toFixed(1) : value.toFixed(3);
+      return fixed.replace(/\.?0+$/, '');
+    }
+
+    function formatDataRate(bitsPerSecond) {
+      if (!Number.isFinite(bitsPerSecond) || bitsPerSecond <= 0) return 'unknown bitrate';
+      if (bitsPerSecond >= 1000000) return `${(bitsPerSecond / 1000000).toFixed(2)} Mbps`;
+      if (bitsPerSecond >= 1000) return `${(bitsPerSecond / 1000).toFixed(1)} kbps`;
+      return `${bitsPerSecond.toFixed(0)} bps`;
+    }
+
+    function plannedWidth() {
+      return actualDim(clampInt(el.widthByte.value, 0, 255, state.widthByte));
+    }
+
+    function plannedHeight() {
+      return actualDim(clampInt(el.heightByte.value, 0, 255, state.heightByte));
+    }
+
+    function plannedBpp() {
+      return clampInt(el.bpp.value, 0, 8, state.bpp);
+    }
+
+    function plannedPixelCount() {
+      return plannedWidth() * plannedHeight();
+    }
+
+    function plannedPaletteCount() {
+      const bpp = plannedBpp();
+      return bpp > 0 ? (1 << bpp) : 0;
+    }
+
+    function readResyncSettings() {
+      const everyFrames = Math.max(0, clampInt(el.resyncEveryFrames.value, 0, 100000, 1));
+      const guardBits = Math.max(2, clampInt(el.resyncGuardBits.value, 2, 1000, 8));
+      return { everyFrames, guardBits };
+    }
+
+    function readSignalTimingInputs() {
+      const bitRate = parseFloat(el.bitRate.value);
+      const startSilenceMs = Math.max(0, parseFloat(el.startSilence.value) || 0);
+      const endSilenceMs = Math.max(0, parseFloat(el.endSilence.value) || 0);
+      return {
+        bitRate: Number.isFinite(bitRate) && bitRate > 0 ? bitRate : 300,
+        startSilenceSec: startSilenceMs / 1000,
+        endSilenceSec: endSilenceMs / 1000,
+        preambleCount: Math.max(0, clampInt(el.preambleCount.value, 0, 10000, 16)),
+        includeSync: el.includeSync.checked,
+      };
+    }
+
+    function signalOverheadBitCount(timing = readSignalTimingInputs()) {
+      return timing.preambleCount * 8 + (timing.includeSync ? 8 : 0);
+    }
+
+    function fixedProtocolBitCountForPlan() {
+      return 24 + plannedPaletteCount() * 24;
+    }
+
+    function chunkOverheadBitCountForPlan(timing = readSignalTimingInputs()) {
+      return signalOverheadBitCount(timing) + fixedProtocolBitCountForPlan();
+    }
+
+    function frameBitShapeForPlan(settings) {
+      const bpp = plannedBpp();
+      const pixels = plannedPixelCount();
+      if (bpp === 0) {
+        const directBits = pixels * 24;
+        return { first: directBits, next: directBits };
+      }
+
+      const indexedBits = 1 + pixels * bpp;
+      const adaptiveUpdateBits = settings.paletteStrategy === 'adaptive'
+        ? 8 + Math.min(plannedPaletteCount(), 255) * 32
+        : 0;
+      return { first: indexedBits, next: indexedBits + adaptiveUpdateBits };
+    }
+
+    function estimatedSignalBitsForFrameCount(frameCount, settings, averageFrameBits = null) {
+      const frames = Math.max(1, Math.floor(frameCount));
+      const timing = readSignalTimingInputs();
+      const resync = readResyncSettings();
+      const chunkSize = resync.everyFrames > 0 ? resync.everyFrames : frames;
+      const chunkCount = Math.max(1, Math.ceil(frames / Math.max(1, chunkSize)));
+      const overheadBits = chunkCount * chunkOverheadBitCountForPlan(timing)
+        + Math.max(0, chunkCount - 1) * resync.guardBits;
+
+      if (Number.isFinite(averageFrameBits) && averageFrameBits > 0) {
+        return overheadBits + Math.ceil(frames * averageFrameBits);
+      }
+
+      const shape = frameBitShapeForPlan(settings);
+      if (resync.everyFrames <= 0) {
+        return overheadBits + shape.first + Math.max(0, frames - 1) * shape.next;
+      }
+
+      const chunkFirstFrames = chunkCount;
+      const otherFrames = Math.max(0, frames - chunkFirstFrames);
+      return overheadBits + chunkFirstFrames * shape.first + otherFrames * shape.next;
+    }
+
+    function estimatedSignalDurationForFrameCount(frameCount, settings, averageFrameBits = null) {
+      const timing = readSignalTimingInputs();
+      return timing.startSilenceSec
+        + estimatedSignalBitsForFrameCount(frameCount, settings, averageFrameBits) / timing.bitRate
+        + timing.endSilenceSec;
+    }
+
+    function autoSyncPlanForDuration(duration, settings, averageFrameBits = null) {
+      if (!Number.isFinite(duration) || duration <= 0) return null;
+
+      const timing = readSignalTimingInputs();
+      const signalSeconds = Math.max(0, duration - timing.startSilenceSec - timing.endSilenceSec);
+      const signalBudgetBits = Math.max(1, Math.floor(signalSeconds * timing.bitRate));
+      const frameLimit = Number.isFinite(settings.maxFrames) ? settings.maxFrames : MAX_AUTO_SYNC_FRAMES;
+      const hardLimit = Math.max(1, Math.min(frameLimit, MAX_AUTO_SYNC_FRAMES));
+      let low = 1;
+      let high = hardLimit;
+
+      while (low < high) {
+        const mid = Math.ceil((low + high + 1) / 2);
+        if (estimatedSignalBitsForFrameCount(mid, settings, averageFrameBits) <= signalBudgetBits) {
+          low = mid;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      const frameCount = low;
+      const capped = hardLimit < MAX_AUTO_SYNC_FRAMES
+        && estimatedSignalBitsForFrameCount(hardLimit + 1, settings, averageFrameBits) <= signalBudgetBits;
+
+      return {
+        frameCount,
+        fps: frameCount / duration,
+        targetDuration: duration,
+        estimatedDuration: estimatedSignalDurationForFrameCount(frameCount, settings, averageFrameBits),
+        bitRate: timing.bitRate,
+        capped,
+      };
+    }
+
+    function applyAutoSyncPlan(duration, settings, averageFrameBits = null) {
+      const plan = autoSyncPlanForDuration(duration, settings, averageFrameBits);
+      if (!plan) return null;
+
+      settings.targetFrameCount = plan.frameCount;
+      settings.fps = plan.fps;
+      settings.autoSynced = true;
+      settings.syncPlan = plan;
+      settings.sourceDuration = duration;
+      el.mediaFps.value = formatFps(plan.fps);
+      return plan;
+    }
+
+    function mediaInfoText(file, meta = null, plan = null) {
+      const sizeMb = file.size / (1024 * 1024);
+      const parts = [`${file.name} (${sizeMb.toFixed(sizeMb >= 10 ? 1 : 2)} MB)`];
+
+      if (meta && meta.duration > 0) {
+        parts.push(`${formatSeconds(meta.duration)} source`);
+        parts.push(`${meta.width} x ${meta.height}`);
+        parts.push(formatDataRate(file.size * 8 / meta.duration));
+      }
+
+      if (plan) {
+        const capText = plan.capped ? ', capped' : '';
+        parts.push(`auto ${plan.frameCount} frames at ${formatFps(plan.fps)} FPS from ${formatDataRate(plan.bitRate)} data${capText}`);
+      }
+
+      return parts.join(' - ');
+    }
+
+    function mimeFromName(name) {
+      const lower = String(name || '').toLowerCase();
+      if (lower.endsWith('.gif')) return 'image/gif';
+      if (lower.endsWith('.webp')) return 'image/webp';
+      if (lower.endsWith('.png')) return 'image/png';
+      if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+      if (lower.endsWith('.mp4') || lower.endsWith('.m4v')) return 'video/mp4';
+      if (lower.endsWith('.webm')) return 'video/webm';
+      if (lower.endsWith('.mov')) return 'video/quicktime';
+      return '';
+    }
+
+    function isVideoFile(file) {
+      const type = file.type || mimeFromName(file.name);
+      return type.startsWith('video/');
+    }
+
+    function waitForMediaEvent(target, eventName) {
+      return new Promise((resolve, reject) => {
+        const cleanup = () => {
+          target.removeEventListener(eventName, onEvent);
+          target.removeEventListener('error', onError);
+        };
+        const onEvent = () => {
+          cleanup();
+          resolve();
+        };
+        const onError = () => {
+          cleanup();
+          reject(new Error('The browser could not decode that media file.'));
+        };
+        target.addEventListener(eventName, onEvent, { once: true });
+        target.addEventListener('error', onError, { once: true });
+      });
+    }
+
+    async function probeVideoMetadata(file) {
+      const video = document.createElement('video');
+      const url = URL.createObjectURL(file);
+
+      try {
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'metadata';
+        video.src = url;
+        video.load();
+        await waitForMediaEvent(video, 'loadedmetadata');
+
+        return {
+          duration: Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0,
+          width: video.videoWidth || 0,
+          height: video.videoHeight || 0,
+        };
+      } finally {
+        URL.revokeObjectURL(url);
+        video.removeAttribute('src');
+        video.load();
+      }
+    }
+
+    async function seekVideo(video, time) {
+      if (Math.abs(video.currentTime - time) < 0.004 && video.readyState >= 2) {
+        return;
+      }
+
+      await new Promise((resolve, reject) => {
+        const cleanup = () => {
+          video.removeEventListener('seeked', onSeeked);
+          video.removeEventListener('error', onError);
+        };
+        const onSeeked = () => {
+          cleanup();
+          resolve();
+        };
+        const onError = () => {
+          cleanup();
+          reject(new Error('Could not seek inside the video.'));
+        };
+        video.addEventListener('seeked', onSeeked, { once: true });
+        video.addEventListener('error', onError, { once: true });
+        try {
+          if (video.fastSeek) {
+            video.fastSeek(time);
+          } else {
+            video.currentTime = time;
+          }
+        } catch (err) {
+          cleanup();
+          reject(err);
+        }
+      });
+    }
+
+    function drawableWidth(source) {
+      return source.videoWidth || source.displayWidth || source.naturalWidth || source.width || 1;
+    }
+
+    function drawableHeight(source) {
+      return source.videoHeight || source.displayHeight || source.naturalHeight || source.height || 1;
+    }
+
+    function drawGridPreview(sourceCanvas) {
+      const canvas = el.mediaPreviewCanvas;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.min(canvas.width / sourceCanvas.width, canvas.height / sourceCanvas.height);
+      const w = Math.max(1, Math.floor(sourceCanvas.width * scale));
+      const h = Math.max(1, Math.floor(sourceCanvas.height * scale));
+      const x = Math.floor((canvas.width - w) / 2);
+      const y = Math.floor((canvas.height - h) / 2);
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0e0f11';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(sourceCanvas, x, y, w, h);
+    }
+
+    function fitSourceRect(sourceW, sourceH, targetW, targetH, mode) {
+      if (mode === 'stretch') {
+        return { sx: 0, sy: 0, sw: sourceW, sh: sourceH, dx: 0, dy: 0, dw: targetW, dh: targetH };
+      }
+
+      const sourceRatio = sourceW / sourceH;
+      const targetRatio = targetW / targetH;
+
+      if (mode === 'contain') {
+        const scale = Math.min(targetW / sourceW, targetH / sourceH);
+        const dw = sourceW * scale;
+        const dh = sourceH * scale;
+        return {
+          sx: 0,
+          sy: 0,
+          sw: sourceW,
+          sh: sourceH,
+          dx: (targetW - dw) / 2,
+          dy: (targetH - dh) / 2,
+          dw,
+          dh,
+        };
+      }
+
+      if (sourceRatio > targetRatio) {
+        const sw = sourceH * targetRatio;
+        return { sx: (sourceW - sw) / 2, sy: 0, sw, sh: sourceH, dx: 0, dy: 0, dw: targetW, dh: targetH };
+      }
+
+      const sh = sourceW / targetRatio;
+      return { sx: 0, sy: (sourceH - sh) / 2, sw: sourceW, sh, dx: 0, dy: 0, dw: targetW, dh: targetH };
+    }
+
+    function clampByte(value) {
+      return clamp(Math.round(value), 0, 255);
+    }
+
+    function tuneMediaColor(r, g, b, mood) {
+      const settings = {
+        normal: { saturation: 1, contrast: 1 },
+        vivid: { saturation: 1.25, contrast: 1.06 },
+        punchy: { saturation: 1.34, contrast: 1.18 },
+        soft: { saturation: 0.82, contrast: 0.96 },
+      }[mood] || { saturation: 1, contrast: 1 };
+
+      const avg = (r + g + b) / 3;
+      let nr = avg + (r - avg) * settings.saturation;
+      let ng = avg + (g - avg) * settings.saturation;
+      let nb = avg + (b - avg) * settings.saturation;
+
+      nr = (nr - 128) * settings.contrast + 128;
+      ng = (ng - 128) * settings.contrast + 128;
+      nb = (nb - 128) * settings.contrast + 128;
+
+      return { r: clampByte(nr), g: clampByte(ng), b: clampByte(nb) };
+    }
+
+    function captureSourcePixels(source, settings) {
+      const w = actualWidth();
+      const h = actualHeight();
+      const canvas = captureSourcePixels.canvas || document.createElement('canvas');
+      captureSourcePixels.canvas = canvas;
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const sourceW = drawableWidth(source);
+      const sourceH = drawableHeight(source);
+      const rect = fitSourceRect(sourceW, sourceH, w, h, settings.fit);
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(source, rect.sx, rect.sy, rect.sw, rect.sh, rect.dx, rect.dy, rect.dw, rect.dh);
+      drawGridPreview(canvas);
+
+      const data = ctx.getImageData(0, 0, w, h).data;
+      const pixels = [];
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 16) {
+          pixels.push({ r: 0, g: 0, b: 0 });
+        } else {
+          pixels.push(tuneMediaColor(data[i], data[i + 1], data[i + 2], settings.colorMood));
+        }
+      }
+      return pixels;
+    }
+
+    async function loadVideoFrames(file, settings) {
+      const video = document.createElement('video');
+      const url = URL.createObjectURL(file);
+      const frames = [];
+
+      try {
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'auto';
+        video.src = url;
+        video.load();
+
+        await waitForMediaEvent(video, 'loadedmetadata');
+        if (video.readyState < 2) {
+          await waitForMediaEvent(video, 'loadeddata');
+        }
+
+        const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+        settings.sourceDuration = duration;
+
+        if (settings.autoSyncFps && duration > 0) {
+          const plan = applyAutoSyncPlan(duration, settings);
+          if (plan) {
+            updateMediaProgress(
+              0.02,
+              `Auto sync: ${plan.frameCount} frames at ${formatFps(plan.fps)} FPS for ${formatSeconds(duration)}.`
+            );
+          }
+        }
+
+        const sampledFrameCount = Number.isFinite(settings.targetFrameCount)
+          ? settings.targetFrameCount
+          : (duration > 0 ? Math.floor(duration * settings.fps) + 1 : 1);
+        const wanted = Math.max(1, Number.isFinite(settings.maxFrames)
+          ? Math.min(settings.maxFrames, sampledFrameCount)
+          : sampledFrameCount);
+
+        for (let i = 0; i < wanted; i++) {
+          const time = duration > 0 ? Math.min(Math.max(0, duration - 0.001), i / settings.fps) : 0;
+          await seekVideo(video, time);
+          frames.push(captureSourcePixels(video, settings));
+          updateMediaProgress((i + 1) / wanted * 0.62, `Sampling video frame ${i + 1} / ${wanted}`);
+          if (i % 2 === 0) await nextPaint();
+        }
+      } finally {
+        URL.revokeObjectURL(url);
+        video.removeAttribute('src');
+        video.load();
+      }
+
+      return frames;
+    }
+
+    async function decodeImageWithImageDecoder(file, type, settings) {
+      const bytes = await file.arrayBuffer();
+      const decoder = new ImageDecoder({ data: bytes, type });
+      const frames = [];
+
+      try {
+        await decoder.tracks.ready;
+        const track = decoder.tracks.selectedTrack;
+        const hasKnownCount = Number.isFinite(track.frameCount) && track.frameCount > 0;
+        const knownCount = hasKnownCount
+          ? track.frameCount
+          : (Number.isFinite(settings.maxFrames) ? settings.maxFrames : 1);
+        const wanted = Math.max(1, Number.isFinite(settings.maxFrames)
+          ? Math.min(settings.maxFrames, knownCount)
+          : knownCount);
+
+        for (let i = 0; i < wanted; i++) {
+          const frameIndex = wanted === 1 ? 0 : Math.floor((i * (knownCount - 1)) / (wanted - 1));
+          let decoded = null;
+          try {
+            decoded = await decoder.decode({ frameIndex });
+          } catch (err) {
+            if (frames.length > 0) break;
+            throw err;
+          }
+          frames.push(captureSourcePixels(decoded.image, settings));
+          if (decoded.image.close) {
+            decoded.image.close();
+          }
+          updateMediaProgress((i + 1) / wanted * 0.62, `Sampling image frame ${i + 1} / ${wanted}`);
+          if (i % 4 === 0) await nextPaint();
+        }
+      } finally {
+        decoder.close();
+      }
+
+      return frames;
+    }
+
+    async function loadStillImageFrame(file, settings) {
+      let bitmap = null;
+      try {
+        bitmap = await createImageBitmap(file);
+        updateMediaProgress(0.62, 'Sampling image frame 1 / 1');
+        return [captureSourcePixels(bitmap, settings)];
+      } finally {
+        if (bitmap && bitmap.close) {
+          bitmap.close();
+        }
+      }
+    }
+
+    async function loadImageFrames(file, settings) {
+      const type = file.type || mimeFromName(file.name);
+      if ('ImageDecoder' in window && type) {
+        try {
+          return await decodeImageWithImageDecoder(file, type, settings);
+        } catch (err) {
+          console.warn('ImageDecoder fallback:', err);
+        }
+      }
+
+      return loadStillImageFrame(file, settings);
+    }
+
+    async function loadMediaFrames(file, settings) {
+      if (isVideoFile(file)) {
+        return loadVideoFrames(file, settings);
+      }
+      return loadImageFrames(file, settings);
+    }
+
+    async function decodeSourceAudioTrack(file) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) {
+        return null;
+      }
+
+      let audioContext = null;
+      try {
+        audioContext = new AudioContextClass();
+        const bytes = await file.arrayBuffer();
+        const buffer = await audioContext.decodeAudioData(bytes);
+        const channelCount = buffer.numberOfChannels;
+        if (!channelCount || buffer.length === 0) return null;
+
+        const mono = new Float32Array(buffer.length);
+        for (let channel = 0; channel < channelCount; channel++) {
+          const source = buffer.getChannelData(channel);
+          for (let i = 0; i < source.length; i++) {
+            mono[i] += source[i] / channelCount;
+          }
+        }
+
+        return {
+          samples: mono,
+          sampleRate: buffer.sampleRate,
+          duration: buffer.duration,
+          channelCount,
+          name: file.name,
+        };
+      } catch (err) {
+        console.warn('Source audio decode failed:', err);
+        return null;
+      } finally {
+        if (audioContext && audioContext.close) {
+          audioContext.close();
+        }
+      }
+    }
+
+    function sourceAudioSampleAt(track, sampleIndex, outputSampleRate) {
+      if (!track || !track.samples || track.samples.length === 0) return 0;
+
+      const sourcePosition = sampleIndex * track.sampleRate / outputSampleRate;
+      const leftIndex = Math.floor(sourcePosition);
+      if (leftIndex < 0 || leftIndex >= track.samples.length) return 0;
+
+      const rightIndex = Math.min(track.samples.length - 1, leftIndex + 1);
+      const mix = sourcePosition - leftIndex;
+      return track.samples[leftIndex] + (track.samples[rightIndex] - track.samples[leftIndex]) * mix;
+    }
+
+    function histogramFromFrames(frames) {
+      const buckets = new Map();
+
+      for (const frame of frames) {
+        for (const color of frame) {
+          const key = ((color.r >> 3) << 10) | ((color.g >> 3) << 5) | (color.b >> 3);
+          let bucket = buckets.get(key);
+          if (!bucket) {
+            bucket = { r: 0, g: 0, b: 0, count: 0 };
+            buckets.set(key, bucket);
+          }
+          bucket.r += color.r;
+          bucket.g += color.g;
+          bucket.b += color.b;
+          bucket.count++;
+        }
+      }
+
+      return Array.from(buckets.values()).map(bucket => ({
+        r: bucket.r / bucket.count,
+        g: bucket.g / bucket.count,
+        b: bucket.b / bucket.count,
+        count: bucket.count,
+      }));
+    }
+
+    function colorBoxScore(box) {
+      let minR = 255;
+      let minG = 255;
+      let minB = 255;
+      let maxR = 0;
+      let maxG = 0;
+      let maxB = 0;
+      let total = 0;
+
+      for (const color of box) {
+        minR = Math.min(minR, color.r);
+        minG = Math.min(minG, color.g);
+        minB = Math.min(minB, color.b);
+        maxR = Math.max(maxR, color.r);
+        maxG = Math.max(maxG, color.g);
+        maxB = Math.max(maxB, color.b);
+        total += color.count;
+      }
+
+      return Math.max(maxR - minR, maxG - minG, maxB - minB) * total;
+    }
+
+    function splitColorBox(box) {
+      let minR = 255;
+      let minG = 255;
+      let minB = 255;
+      let maxR = 0;
+      let maxG = 0;
+      let maxB = 0;
+      let total = 0;
+
+      for (const color of box) {
+        minR = Math.min(minR, color.r);
+        minG = Math.min(minG, color.g);
+        minB = Math.min(minB, color.b);
+        maxR = Math.max(maxR, color.r);
+        maxG = Math.max(maxG, color.g);
+        maxB = Math.max(maxB, color.b);
+        total += color.count;
+      }
+
+      const channel = (maxR - minR >= maxG - minG && maxR - minR >= maxB - minB)
+        ? 'r'
+        : (maxG - minG >= maxB - minB ? 'g' : 'b');
+      const sorted = box.slice().sort((a, b) => a[channel] - b[channel]);
+      const half = total / 2;
+      let running = 0;
+      let splitAt = 1;
+
+      for (let i = 0; i < sorted.length - 1; i++) {
+        running += sorted[i].count;
+        if (running >= half) {
+          splitAt = i + 1;
+          break;
+        }
+      }
+
+      return [sorted.slice(0, splitAt), sorted.slice(splitAt)];
+    }
+
+    function averageColorBox(box) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let total = 0;
+
+      for (const color of box) {
+        r += color.r * color.count;
+        g += color.g * color.count;
+        b += color.b * color.count;
+        total += color.count;
+      }
+
+      if (total === 0) return { r: 0, g: 0, b: 0 };
+      return { r: clampByte(r / total), g: clampByte(g / total), b: clampByte(b / total) };
+    }
+
+    function medianCutPalette(weightedColors, count) {
+      if (weightedColors.length === 0 || count <= 0) {
+        return [];
+      }
+
+      const boxes = [weightedColors.slice()];
+      while (boxes.length < count) {
+        let bestIndex = -1;
+        let bestScore = -1;
+
+        for (let i = 0; i < boxes.length; i++) {
+          if (boxes[i].length <= 1) continue;
+          const score = colorBoxScore(boxes[i]);
+          if (score > bestScore) {
+            bestScore = score;
+            bestIndex = i;
+          }
+        }
+
+        if (bestIndex < 0) break;
+        const [left, right] = splitColorBox(boxes[bestIndex]);
+        boxes.splice(bestIndex, 1, left, right.length > 0 ? right : left);
+      }
+
+      return boxes.map(averageColorBox);
+    }
+
+    function refinePalette(weightedColors, palette, iterations = 4) {
+      let current = palette.map(copyRgb);
+      if (current.length === 0) return current;
+
+      for (let round = 0; round < iterations; round++) {
+        const sums = current.map(() => ({ r: 0, g: 0, b: 0, count: 0 }));
+
+        for (const color of weightedColors) {
+          const index = nearestPaletteIndex(color, current);
+          sums[index].r += color.r * color.count;
+          sums[index].g += color.g * color.count;
+          sums[index].b += color.b * color.count;
+          sums[index].count += color.count;
+        }
+
+        current = current.map((color, index) => {
+          const sum = sums[index];
+          if (sum.count === 0) return color;
+          return {
+            r: clampByte(sum.r / sum.count),
+            g: clampByte(sum.g / sum.count),
+            b: clampByte(sum.b / sum.count),
+          };
+        });
+      }
+
+      return current;
+    }
+
+    function fillPalette(palette, count) {
+      const out = palette.slice(0, count).map(copyRgb);
+      while (out.length < count) {
+        out.push(defaultPaletteEntry(out.length, count));
+      }
+      return out;
+    }
+
+    function paletteFromColorFrames(frames, count) {
+      const weightedColors = histogramFromFrames(frames);
+      const base = medianCutPalette(weightedColors, count);
+      return fillPalette(refinePalette(weightedColors, base), count);
+    }
+
+    function quantizeFrameColors(colors, palette, dither, limit = palette.length) {
+      const usable = Math.max(1, Math.min(limit, palette.length));
+
+      if (!dither) {
+        return colors.map(color => nearestPaletteIndex(color, palette, usable));
+      }
+
+      const w = actualWidth();
+      const h = actualHeight();
+      const outputPalette = palette.slice(0, usable).map(simulatedLedRgb);
+      const work = colors.map(simulatedLedRgb);
+      const indexes = Array(colors.length).fill(0);
+
+      function nearestOutputPaletteIndex(color) {
+        let bestIndex = 0;
+        let bestDistance = Infinity;
+
+        for (let i = 0; i < outputPalette.length; i++) {
+          const next = outputPalette[i];
+          const dr = color.r - next.r;
+          const dg = color.g - next.g;
+          const db = color.b - next.b;
+          const distance = dr * dr * 2 + dg * dg * 3 + db * db * 2;
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestIndex = i;
+          }
+        }
+
+        return bestIndex;
+      }
+
+      function spread(index, er, eg, eb, factor) {
+        if (index < 0 || index >= work.length) return;
+        work[index].r += er * factor;
+        work[index].g += eg * factor;
+        work[index].b += eb * factor;
+      }
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const index = y * w + x;
+          const oldColor = work[index];
+          const paletteIndex = nearestOutputPaletteIndex(oldColor);
+          const nextColor = outputPalette[paletteIndex];
+          indexes[index] = paletteIndex;
+
+          const er = oldColor.r - nextColor.r;
+          const eg = oldColor.g - nextColor.g;
+          const eb = oldColor.b - nextColor.b;
+
+          spread(index + 1, er, eg, eb, 7 / 16);
+          spread(index + w - 1, er, eg, eb, 3 / 16);
+          spread(index + w, er, eg, eb, 5 / 16);
+          spread(index + w + 1, er, eg, eb, 1 / 16);
+        }
+      }
+
+      return indexes;
+    }
+
+    function paletteChanged(a, b) {
+      return !a || a.r !== b.r || a.g !== b.g || a.b !== b.b;
+    }
+
+    function importColorFrames(frames, settings) {
+      const n = pixelCount();
+
+      if (state.bpp === 0) {
+        state.frames = frames.map(colors => ({
+          pixels: Array(n).fill(0),
+          colors: colors.map(copyRgb),
+          paletteUpdates: [],
+        }));
+        return;
+      }
+
+      const count = paletteCount();
+      if (settings.paletteStrategy === 'adaptive') {
+        const usableCount = Math.min(count, 255);
+        const framePalettes = frames.map(colors => fillPalette(paletteFromColorFrames([colors], usableCount), count));
+        state.palette = framePalettes[0].map(copyRgb);
+
+        let previousPalette = state.palette.map(copyRgb);
+        state.frames = frames.map((colors, frameIndex) => {
+          const palette = framePalettes[frameIndex];
+          const paletteUpdates = [];
+
+          if (frameIndex > 0) {
+            for (let i = 0; i < usableCount && paletteUpdates.length < 255; i++) {
+              if (paletteChanged(previousPalette[i], palette[i])) {
+                paletteUpdates.push({ index: i, color: copyRgb(palette[i]) });
+              }
+            }
+          }
+
+          previousPalette = palette.map(copyRgb);
+          return {
+            pixels: quantizeFrameColors(colors, palette, settings.dither, usableCount),
+            colors: colors.map(copyRgb),
+            paletteUpdates,
+          };
+        });
+        return;
+      }
+
+      state.palette = paletteFromColorFrames(frames, count);
+      state.frames = frames.map(colors => ({
+        pixels: quantizeFrameColors(colors, state.palette, settings.dither),
+        colors: colors.map(copyRgb),
+        paletteUpdates: [],
+      }));
+    }
+
+    async function importMedia() {
+      if (mediaBusy) return;
+
+      const file = el.mediaFile.files && el.mediaFile.files[0];
+      if (!file) {
+        setStatus('Choose a video, GIF, or image first.', 'error');
+        return;
+      }
+
+      applyGrid();
+      const previous = {
+        widthByte: state.widthByte,
+        heightByte: state.heightByte,
+        bpp: state.bpp,
+        palette: state.palette.map(copyRgb),
+        frames: state.frames.map(frame => ({
+          pixels: frame.pixels.slice(),
+          colors: frame.colors.map(copyRgb),
+          paletteUpdates: frame.paletteUpdates.map(update => ({
+            index: update.index,
+            color: copyRgb(update.color),
+          })),
+        })),
+        currentFrame: state.currentFrame,
+        sourceAudio: currentSourceAudio,
+        selectedMediaMeta,
+      };
+
+      try {
+        setMediaBusy(true);
+        updateMediaProgress(0, `Reading ${file.name}...`);
+        setStatus('Sampling media...');
+
+        const settings = readMediaSettings();
+        const fileIsVideo = isVideoFile(file);
+        const frames = await loadMediaFrames(file, settings);
+        if (frames.length === 0) {
+          throw new Error('No frames could be read from that file.');
+        }
+
+        updateMediaProgress(0.68, 'Choosing colors...');
+        await nextPaint();
+        importColorFrames(frames, settings);
+        currentSourceAudio = null;
+        if (fileIsVideo) {
+          updateMediaProgress(0.84, 'Mixing source audio to mono...');
+          await nextPaint();
+          currentSourceAudio = await decodeSourceAudioTrack(file);
+        }
+        state.currentFrame = 0;
+        ensurePaletteSize();
+        normalizeFrames();
+        renderAll();
+        exportProjectJson();
+        const generated = generate();
+
+        const mode = state.bpp === 0
+          ? 'RGB'
+          : `${paletteCount()} colors, ${settings.paletteStrategy === 'adaptive' ? 'per-frame palettes' : 'global palette'}`;
+        const syncText = settings.sourceDuration > 0 && generated && currentMeta
+          ? ` Signal ${formatSeconds(currentMeta.signalDuration)} / source ${formatSeconds(settings.sourceDuration)}.`
+          : '';
+        const audioText = fileIsVideo
+          ? (currentSourceAudio ? ` Source audio mixed to mono (${currentSourceAudio.channelCount}ch).` : ' No source audio decoded.')
+          : '';
+        updateMediaProgress(1, `Imported ${frames.length} frames at ${actualWidth()} x ${actualHeight()} (${mode}).${syncText}${audioText}`);
+        setStatus(
+          generated ? `Imported ${frames.length} media frames.` : `Imported ${frames.length} media frames, but audio generation failed.`,
+          generated ? 'ok' : 'error'
+        );
+      } catch (err) {
+        console.error(err);
+        state.widthByte = previous.widthByte;
+        state.heightByte = previous.heightByte;
+        state.bpp = previous.bpp;
+        state.palette = previous.palette;
+        state.frames = previous.frames;
+        state.currentFrame = previous.currentFrame;
+        currentSourceAudio = previous.sourceAudio;
+        selectedMediaMeta = previous.selectedMediaMeta;
+        renderAll();
+        setStatus(err.message || String(err), 'error');
+        updateMediaProgress(0, err.message || 'Media import failed.');
+      } finally {
+        setMediaBusy(false);
+      }
+    }
+
+    async function updateSelectedMediaInfo() {
+      const token = ++mediaInfoToken;
+      const file = el.mediaFile.files && el.mediaFile.files[0];
+      if (!file) {
+        selectedMediaMeta = null;
+        updateMediaProgress(0, 'No file selected.');
+        return;
+      }
+
+      selectedMediaMeta = null;
+      if (!isVideoFile(file)) {
+        updateMediaProgress(0, mediaInfoText(file));
+        return;
+      }
+
+      updateMediaProgress(0, `Reading metadata for ${file.name}...`);
+      try {
+        const meta = await probeVideoMetadata(file);
+        if (token !== mediaInfoToken) return;
+
+        selectedMediaMeta = meta;
+        const settings = readMediaSettings();
+        const plan = settings.autoSyncFps && meta.duration > 0
+          ? applyAutoSyncPlan(meta.duration, settings)
+          : null;
+        updateMediaProgress(0, mediaInfoText(file, meta, plan));
+      } catch (err) {
+        if (token !== mediaInfoToken) return;
+        console.warn('Video metadata probe failed:', err);
+        updateMediaProgress(0, `${mediaInfoText(file)} - metadata unavailable`);
+      }
+    }
+
+    function clearMediaFile() {
+      if (mediaBusy) return;
+      el.mediaFile.value = '';
+      currentSourceAudio = null;
+      selectedMediaMeta = null;
+      updateSelectedMediaInfo();
+    }
+
+    function pushByteBits(bits, byte) {
+      const value = byte & 255;
+      for (let bit = 7; bit >= 0; bit--) {
+        bits.push((value >> bit) & 1);
+      }
+    }
+
+    function pushValueBits(bits, value, count) {
+      for (let bit = count - 1; bit >= 0; bit--) {
+        bits.push((value >> bit) & 1);
+      }
+    }
+
+    function appendBits(bits, source) {
+      for (let i = 0; i < source.length; i++) {
+        bits.push(source[i]);
+      }
+    }
+
+    function pushColorBits(bits, color) {
+      const limited = limitRgb(color);
+      pushByteBits(bits, limited.r);
+      pushByteBits(bits, limited.g);
+      pushByteBits(bits, limited.b);
+    }
+
+    function pushProtocolHeaderBits(bits) {
+      pushByteBits(bits, state.widthByte);
+      pushByteBits(bits, state.heightByte);
+      pushByteBits(bits, state.bpp);
+    }
+
+    function pushFramePaletteUpdates(bits, frame, workingPalette, count) {
+      const updates = (frame.paletteUpdates || []).slice(0, 255);
+      bits.push(updates.length > 0 ? 1 : 0);
+
+      if (updates.length === 0) {
+        return;
+      }
+
+      pushByteBits(bits, updates.length);
+      for (const update of updates) {
+        pushByteBits(bits, update.index);
+        pushColorBits(bits, update.color);
+
+        if (update.index >= 0 && update.index < count) {
+          workingPalette[update.index] = copyRgb(update.color);
+        }
+      }
+    }
+
+    function pushIndexedFramePixels(bits, frame) {
+      for (const index of frame.pixels) {
+        pushValueBits(bits, index, state.bpp);
+      }
+    }
+
+    function buildLegacyProtocolBits() {
+      normalizeFrames();
+
+      const bits = [];
+      pushProtocolHeaderBits(bits);
+
+      if (state.bpp === 0) {
+        for (const frame of state.frames) {
+          for (const color of frame.colors) {
+            pushColorBits(bits, color);
+          }
+        }
+        return bits;
+      }
+
+      const count = paletteCount();
+      const workingPalette = [];
+      for (let i = 0; i < count; i++) {
+        const color = state.palette[i] || { r: 0, g: 0, b: 0 };
+        workingPalette[i] = copyRgb(color);
+        pushColorBits(bits, color);
+      }
+
+      for (const frame of state.frames) {
+        pushFramePaletteUpdates(bits, frame, workingPalette, count);
+        pushIndexedFramePixels(bits, frame);
+      }
+
+      return bits;
+    }
+
+    function buildProtocolChunks(resyncEveryFrames = readResyncSettings().everyFrames) {
+      normalizeFrames();
+
+      if (resyncEveryFrames <= 0 || state.frames.length <= 1) {
+        return [{
+          startFrame: 0,
+          endFrame: state.frames.length,
+          bits: buildLegacyProtocolBits(),
+        }];
+      }
+
+      const chunkSize = Math.max(1, Math.floor(resyncEveryFrames));
+      const chunks = [];
+
+      if (state.bpp === 0) {
+        for (let start = 0; start < state.frames.length; start += chunkSize) {
+          const end = Math.min(state.frames.length, start + chunkSize);
+          const bits = [];
+          pushProtocolHeaderBits(bits);
+
+          for (let frameIndex = start; frameIndex < end; frameIndex++) {
+            for (const color of state.frames[frameIndex].colors) {
+              pushColorBits(bits, color);
+            }
+          }
+
+          chunks.push({ startFrame: start, endFrame: end, bits });
+        }
+
+        return chunks;
+      }
+
+      const count = paletteCount();
+      const workingPalette = [];
+      for (let i = 0; i < count; i++) {
+        workingPalette[i] = copyRgb(state.palette[i] || { r: 0, g: 0, b: 0 });
+      }
+
+      for (let start = 0; start < state.frames.length; start += chunkSize) {
+        const end = Math.min(state.frames.length, start + chunkSize);
+        const firstFrame = state.frames[start];
+
+        for (const update of (firstFrame.paletteUpdates || []).slice(0, 255)) {
+          if (update.index >= 0 && update.index < count) {
+            workingPalette[update.index] = copyRgb(update.color);
+          }
+        }
+
+        const bits = [];
+        pushProtocolHeaderBits(bits);
+        for (let i = 0; i < count; i++) {
+          pushColorBits(bits, workingPalette[i] || { r: 0, g: 0, b: 0 });
+        }
+
+        for (let frameIndex = start; frameIndex < end; frameIndex++) {
+          const frame = state.frames[frameIndex];
+          if (frameIndex === start) {
+            bits.push(0);
+          } else {
+            pushFramePaletteUpdates(bits, frame, workingPalette, count);
+          }
+
+          pushIndexedFramePixels(bits, frame);
+        }
+
+        chunks.push({ startFrame: start, endFrame: end, bits });
+      }
+
+      return chunks;
+    }
+
+    function buildProtocolBits() {
+      const bits = [];
+      for (const chunk of buildProtocolChunks()) {
+        appendBits(bits, chunk.bits);
+      }
+      return bits;
+    }
+
+    function buildSignalBits() {
+      const resync = readResyncSettings();
+      const chunks = buildProtocolChunks(resync.everyFrames);
+      const preambleCount = Math.max(0, clampInt(el.preambleCount.value, 0, 10000, 16));
+      const includeSync = el.includeSync.checked;
+      if (chunks.length > 1 && (!includeSync || preambleCount < 3)) {
+        throw new Error('Chunked resync needs at least 3 preamble bytes and the sync byte enabled.');
+      }
+
+      const bits = [];
+      const protocolBits = [];
+      const signalSegments = [];
+      const guardHalfCount = chunks.length > 1 ? resync.guardBits * 2 : 0;
+      let halfCursor = 0;
+
+      chunks.forEach((chunk, chunkIndex) => {
+        if (chunkIndex > 0 && guardHalfCount > 0) {
+          signalSegments.push({
+            type: 'guard',
+            startHalf: halfCursor,
+            halfCount: guardHalfCount,
+          });
+          halfCursor += guardHalfCount;
+        }
+
+        const chunkBits = [];
+        for (let i = 0; i < preambleCount; i++) {
+          pushByteBits(chunkBits, 0x55);
+        }
+
+        if (includeSync) {
+          pushByteBits(chunkBits, 0xD5);
+        }
+
+        appendBits(chunkBits, chunk.bits);
+        appendBits(bits, chunkBits);
+        appendBits(protocolBits, chunk.bits);
+
+        signalSegments.push({
+          type: 'bits',
+          bits: chunkBits,
+          startHalf: halfCursor,
+          halfCount: chunkBits.length * 2,
+        });
+        halfCursor += chunkBits.length * 2;
+      });
+
+      return {
+        bits,
+        protocolBits,
+        chunks,
+        signalSegments,
+        signalHalfCount: halfCursor,
+        signalBitPeriods: halfCursor / 2,
+        preambleCount,
+        includeSync,
+        resyncEveryFrames: resync.everyFrames,
+        resyncGuardBits: chunks.length > 1 ? resync.guardBits : 0,
+        guardBreaks: Math.max(0, chunks.length - 1),
+      };
+    }
+
+    function manchesterLevelForHalf(bits, halfIndex, convention) {
+      const bit = bits[Math.floor(halfIndex / 2)] || 0;
+      const firstHalf = (halfIndex & 1) === 0;
+
+      if (convention === 'ieee') {
+        return bit === 0
+          ? (firstHalf ? -1 : +1)
+          : (firstHalf ? +1 : -1);
+      }
+
+      return bit === 0
+        ? (firstHalf ? +1 : -1)
+        : (firstHalf ? -1 : +1);
+    }
+
+    function manchesterHalfLevelPreview(bits, convention, maxHalves = 64) {
+      const limit = Math.min(bits.length * 2, maxHalves);
+      const out = [];
+      for (let i = 0; i < limit; i++) {
+        out.push(manchesterLevelForHalf(bits, i, convention));
+      }
+      return out;
+    }
+
+    function firstPreambleHalfLevel(convention) {
+      return manchesterLevelForHalf([0], 0, convention);
+    }
+
+    function signalSegmentForHalf(stream, halfIndex) {
+      let low = 0;
+      let high = stream.signalSegments.length - 1;
+
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        const segment = stream.signalSegments[mid];
+        if (halfIndex < segment.startHalf) {
+          high = mid - 1;
+        } else if (halfIndex >= segment.startHalf + segment.halfCount) {
+          low = mid + 1;
+        } else {
+          return segment;
+        }
+      }
+
+      return null;
+    }
+
+    function manchesterLevelForSignalHalf(stream, halfIndex, convention) {
+      const segment = signalSegmentForHalf(stream, halfIndex);
+      if (!segment) return 0;
+      if (segment.type === 'guard') return firstPreambleHalfLevel(convention);
+      return manchesterLevelForHalf(segment.bits, halfIndex - segment.startHalf, convention);
+    }
+
+    function manchesterSignalHalfLevelPreview(stream, convention, maxHalves = 64) {
+      const limit = Math.min(stream.signalHalfCount, maxHalves);
+      const out = [];
+      for (let i = 0; i < limit; i++) {
+        out.push(manchesterLevelForSignalHalf(stream, i, convention));
+      }
+      return out;
+    }
+
+    function formatSeconds(sec) {
+      if (sec < 1) return `${sec.toFixed(3)} s`;
+      if (sec < 10) return `${sec.toFixed(2)} s`;
+      if (sec < 100) return `${sec.toFixed(1)} s`;
+      return `${sec.toFixed(0)} s`;
+    }
+
+    function generatePcm() {
+      const bitRate = parseFloat(el.bitRate.value);
+      const sampleRate = parseInt(el.sampleRate.value, 10);
+      const amplitude = clamp(parseFloat(el.amplitude.value), 0.01, 1.0);
+      const startSilenceMs = Math.max(0, parseFloat(el.startSilence.value) || 0);
+      const endSilenceMs = Math.max(0, parseFloat(el.endSilence.value) || 0);
+      const convention = el.convention.value;
+      const smoothEdges = el.smoothEdges.checked;
+      const sourceAudio = el.includeSourceAudio.checked ? currentSourceAudio : null;
+      const includeSourceAudio = Boolean(sourceAudio);
+      const channelLayout = el.channelLayout.value;
+
+      if (!Number.isFinite(bitRate) || bitRate <= 0) throw new Error('Bit rate must be greater than 0.');
+      if (!Number.isFinite(sampleRate) || sampleRate < 8000) throw new Error('Sample rate must be at least 8000 Hz.');
+      if (sampleRate < bitRate * 8) throw new Error('Sample rate is too low for that bit rate.');
+
+      const stream = buildSignalBits();
+      if (stream.bits.length === 0) throw new Error('Nothing to encode.');
+
+      const halfBitDur = 1 / (bitRate * 2);
+      const startSilenceSec = startSilenceMs / 1000;
+      const endSilenceSec = endSilenceMs / 1000;
+      const halfLevelCount = stream.signalHalfCount;
+      const dataDur = halfLevelCount * halfBitDur;
+      const totalDur = startSilenceSec + dataDur + endSilenceSec;
+      const signalSamples = Math.max(1, Math.ceil(totalDur * sampleRate));
+      const sourceAudioSamples = includeSourceAudio ? Math.ceil(sourceAudio.duration * sampleRate) : 0;
+      const totalSamples = includeSourceAudio ? Math.max(signalSamples, sourceAudioSamples) : signalSamples;
+      const channelCount = includeSourceAudio ? 2 : 1;
+      const dataSize = totalSamples * channelCount * 2;
+
+      if (dataSize > 0xFFFFFFFF - 36) {
+        throw new Error('WAV is too large for the 4 GB RIFF limit. Lower FPS, BPP, grid size, or sample rate.');
+      }
+
+      const startTime = startSilenceSec;
+      const endDataTime = startSilenceSec + dataDur;
+      const rampSamples = smoothEdges ? Math.max(1, Math.round(sampleRate * Math.min(halfBitDur * 0.15, 0.00035))) : 0;
+      const previewSampleCount = Math.max(1, Math.min(signalSamples, Math.max(2000, Math.round(sampleRate * 0.08))));
+      const samples = new Float32Array(previewSampleCount);
+      const wavChunks = [makeWavHeader(totalSamples, sampleRate, channelCount)];
+
+      function dataSampleAt(sampleIndex) {
+        if (sampleIndex >= signalSamples) return 0;
+
+        const t = sampleIndex / sampleRate;
+        let v = 0;
+
+        if (t >= startTime && t < endDataTime) {
+          const dataT = t - startTime;
+          const halfIndex = Math.min(halfLevelCount - 1, Math.floor(dataT / halfBitDur));
+          v = manchesterLevelForSignalHalf(stream, halfIndex, convention) * amplitude;
+
+          if (rampSamples > 0) {
+            const sampleInHalf = Math.floor((dataT - halfIndex * halfBitDur) * sampleRate);
+            if (sampleInHalf < rampSamples && halfIndex > 0) {
+              const prev = manchesterLevelForSignalHalf(stream, halfIndex - 1, convention) * amplitude;
+              const mix = sampleInHalf / rampSamples;
+              v = prev + (v - prev) * mix;
+            }
+          }
+        }
+
+        return v;
+      }
+
+      function writeSample(view, sampleOffset, value) {
+        const s = Math.max(-1, Math.min(1, value));
+        view.setInt16(sampleOffset * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+
+      const chunkSampleCount = 262144;
+      for (let chunkStart = 0; chunkStart < totalSamples; chunkStart += chunkSampleCount) {
+        const chunkCount = Math.min(chunkSampleCount, totalSamples - chunkStart);
+        const chunkBuffer = new ArrayBuffer(chunkCount * channelCount * 2);
+        const view = new DataView(chunkBuffer);
+
+        for (let j = 0; j < chunkCount; j++) {
+          const sampleIndex = chunkStart + j;
+          const dataValue = dataSampleAt(sampleIndex);
+          if (sampleIndex < samples.length) {
+            samples[sampleIndex] = dataValue;
+          }
+
+          if (channelCount === 1) {
+            writeSample(view, j, dataValue);
+          } else {
+            const audioValue = sourceAudioSampleAt(sourceAudio, sampleIndex, sampleRate);
+            const left = channelLayout === 'audio-left' ? audioValue : dataValue;
+            const right = channelLayout === 'audio-left' ? dataValue : audioValue;
+            const frameOffset = j * channelCount;
+            writeSample(view, frameOffset, left);
+            writeSample(view, frameOffset + 1, right);
+          }
+        }
+
+        wavChunks.push(chunkBuffer);
+      }
+
+      return {
+        samples,
+        wavBlob: new Blob(wavChunks, { type: 'audio/wav' }),
+        sampleRate,
+        bits: stream.bits,
+        protocolBits: stream.protocolBits,
+        halfLevelPreview: manchesterSignalHalfLevelPreview(stream, convention),
+        halfLevelCount,
+        meta: {
+          bitRate,
+          sampleRate,
+          amplitude,
+          totalBits: stream.signalBitPeriods,
+          dataBits: stream.bits.length,
+          protocolBits: stream.protocolBits.length,
+          tailBits: stream.protocolBits.length % 8,
+          totalSamples,
+          signalSamples,
+          totalDuration: totalSamples / sampleRate,
+          signalDuration: totalDur,
+          preambleCount: stream.preambleCount,
+          includeSync: stream.includeSync,
+          chunkCount: stream.chunks.length,
+          resyncEveryFrames: stream.resyncEveryFrames,
+          resyncGuardBits: stream.resyncGuardBits,
+          guardBreaks: stream.guardBreaks,
+          convention,
+          frames: state.frames.length,
+          wavChannels: channelCount,
+          sourceAudioIncluded: includeSourceAudio,
+          sourceAudioRequested: el.includeSourceAudio.checked,
+          sourceAudioDuration: includeSourceAudio ? sourceAudio.duration : 0,
+          sourceAudioChannels: includeSourceAudio ? sourceAudio.channelCount : 0,
+          channelLayout: includeSourceAudio ? channelLayout : 'data-mono',
+          brightnessLimit: brightnessLimitPercent(),
+          ledColorProfile: ledColorProfileEnabled(),
+        },
+      };
+    }
+
+    function makeWavHeader(totalSamples, sampleRate, numChannels = 1) {
+      const bitsPerSample = 16;
+      const blockAlign = numChannels * bitsPerSample / 8;
+      const byteRate = sampleRate * blockAlign;
+      const dataSize = totalSamples * blockAlign;
+      const buffer = new ArrayBuffer(44);
+      const view = new DataView(buffer);
+
+      function writeString(offset, str) {
+        for (let i = 0; i < str.length; i++) {
+          view.setUint8(offset + i, str.charCodeAt(i));
+        }
+      }
+
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + dataSize, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitsPerSample, true);
+      writeString(36, 'data');
+      view.setUint32(40, dataSize, true);
+
+      return buffer;
+    }
+
+    function bitsToHex(bits, maxBytes = 96) {
+      const fullBytes = Math.floor(bits.length / 8);
+      const limit = Math.min(fullBytes, maxBytes);
+      const out = [];
+
+      for (let i = 0; i < limit; i++) {
+        let value = 0;
+        for (let bit = 0; bit < 8; bit++) {
+          value = (value << 1) | bits[i * 8 + bit];
+        }
+        out.push(value.toString(16).padStart(2, '0'));
+      }
+
+      return `${out.join(' ')}${fullBytes > maxBytes ? ' ...' : ''}`;
+    }
+
+    function bitsPreview(bits, maxBits = 192) {
+      const shown = bits.slice(0, maxBits).join('');
+      return `${shown}${bits.length > maxBits ? ' ...' : ''}`;
+    }
+
+    function updateAudioUi(result) {
+      const { samples, meta, protocolBits, bits, halfLevelPreview, halfLevelCount } = result;
+      el.frameCount.textContent = String(meta.frames);
+      el.protocolBits.textContent = meta.protocolBits.toString();
+      el.tailBits.textContent = meta.tailBits.toString();
+      el.totalBits.textContent = meta.totalBits.toString();
+      el.duration.textContent = formatSeconds(meta.totalDuration);
+      el.sampleCount.textContent = meta.totalSamples.toLocaleString();
+
+      const fullProtocolBytes = Math.floor(protocolBits.length / 8);
+      const tail = protocolBits.slice(fullProtocolBytes * 8).join('');
+      const mode = state.bpp === 0 ? 'direct RGB' : `${paletteCount()} color indexed`;
+      const wavMode = meta.sourceAudioIncluded
+        ? `stereo WAV, ${meta.channelLayout === 'audio-left' ? 'audio left / data right' : 'data left / audio right'}`
+        : (meta.sourceAudioRequested ? 'mono data WAV, no source audio decoded' : 'mono data WAV');
+      const sourceAudioLine = meta.sourceAudioIncluded
+        ? `Source audio: ${formatSeconds(meta.sourceAudioDuration)}, ${meta.sourceAudioChannels}ch mixed to mono`
+        : 'Source audio: none';
+      el.preview.textContent =
+`Protocol: ${actualWidth()}x${actualHeight()}, bpp ${state.bpp}, ${mode}
+Frames: ${state.frames.length}
+Brightness limit: ${meta.brightnessLimit.toFixed(0)}%
+LED-aware matching: ${meta.ledColorProfile ? 'on' : 'off'}
+Resync chunks: ${meta.chunkCount}
+Guard breaks: ${meta.guardBreaks}${meta.guardBreaks ? ` x ${meta.resyncGuardBits} bit periods` : ''}
+WAV: ${wavMode}
+Signal duration: ${formatSeconds(meta.signalDuration)}
+${sourceAudioLine}
+Protocol bits: ${protocolBits.length}
+Signal data bits: ${meta.dataBits}
+Full protocol bytes: ${fullProtocolBytes}
+Protocol tail bits: ${tail || 'none'}
+
+Protocol bytes:
+${bitsToHex(protocolBits, 120)}
+
+Protocol bit preview:
+${bitsPreview(protocolBits)}
+
+Full signal bit preview:
+${bitsPreview(bits)}
+
+Manchester half-level preview:
+${halfLevelPreview.map(v => v > 0 ? '+1' : '-1').join(' ')}${halfLevelCount > halfLevelPreview.length ? ' ...' : ''}`;
+
+      drawWave(samples, meta.sampleRate);
+    }
+
+    function drawWave(samples, sampleRate) {
+      const canvas = el.waveCanvas;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#0e0f11';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 8; i++) {
+        const y = (h / 8) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = 'rgba(97, 210, 197, 0.95)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      const previewSamples = Math.min(samples.length, Math.max(2000, Math.round(sampleRate * 0.08)));
+      for (let x = 0; x < w; x++) {
+        const idx = Math.min(previewSamples - 1, Math.floor((x / Math.max(1, w - 1)) * previewSamples));
+        const v = samples[idx];
+        const y = h / 2 - v * (h * 0.38);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(241, 199, 102, 0.75)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(0, h / 2);
+      ctx.lineTo(w, h / 2);
+      ctx.stroke();
+    }
+
+    function generate() {
+      try {
+        setStatus('Generating audio...');
+        const result = generatePcm();
+        const wavBlob = result.wavBlob;
+
+        if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+        currentBlobUrl = URL.createObjectURL(wavBlob);
+        currentBlob = wavBlob;
+        currentMeta = result.meta;
+
+        el.player.src = currentBlobUrl;
+        updateAudioUi(result);
+        const audioText = result.meta.sourceAudioIncluded ? ' with source audio' : '';
+        setStatus(`Generated ${result.meta.totalBits} Manchester signal bit periods${audioText}.`, 'ok');
+        return true;
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), 'error');
+        return false;
+      }
+    }
+
+    function downloadCurrent() {
+      if (!generate()) return;
+      if (!currentBlob) return;
+
+      const a = document.createElement('a');
+      const safeRate = currentMeta ? currentMeta.bitRate.toFixed(0) : 'rate';
+      const audioTag = currentMeta && currentMeta.sourceAudioIncluded ? 'stereo' : 'mono';
+      a.href = currentBlobUrl;
+      a.download = `led_manchester_${actualWidth()}x${actualHeight()}_${state.frames.length}f_${safeRate}bps_${audioTag}.wav`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function togglePlayback() {
+      if (el.player.paused) {
+        if (!generate()) return;
+        el.player.play();
+      } else {
+        el.player.pause();
+      }
+    }
+
+    function projectToObject() {
+      const obj = {
+        width: state.widthByte,
+        height: state.heightByte,
+        bpp: state.bpp,
+        frames: [],
+      };
+
+      if (state.bpp > 0) {
+        obj.palette = state.palette.slice(0, paletteCount()).map(rgbToHex);
+        obj.frames = state.frames.map(frame => ({
+          paletteUpdates: frame.paletteUpdates.map(update => ({
+            index: update.index,
+            color: rgbToHex(update.color),
+          })),
+          pixels: frame.pixels.slice(),
+        }));
+      } else {
+        obj.frames = state.frames.map(frame => ({
+          colors: frame.colors.map(rgbToHex),
+        }));
+      }
+
+      return obj;
+    }
+
+    function exportProjectJson() {
+      el.projectJson.value = JSON.stringify(projectToObject(), null, 2);
+      setStatus('JSON exported.', 'ok');
+    }
+
+    function loadProjectJson() {
+      try {
+        const obj = JSON.parse(el.projectJson.value);
+        const nextWidthByte = clampInt(obj.width ?? obj.widthByte, 0, 255, 8);
+        const nextHeightByte = clampInt(obj.height ?? obj.heightByte, 0, 255, 8);
+        const nextBpp = clampInt(obj.bpp, 0, 8, 0);
+        const nextW = actualDim(nextWidthByte);
+        const nextH = actualDim(nextHeightByte);
+
+        if (nextW * nextH > MAX_GRID_PIXELS) {
+          throw new Error(`Grid is too large. Max is ${MAX_GRID_PIXELS} pixels.`);
+        }
+
+        state.widthByte = nextWidthByte;
+        state.heightByte = nextHeightByte;
+        state.bpp = nextBpp;
+        state.currentFrame = 0;
+
+        if (state.bpp > 0) {
+          const count = paletteCount();
+          const sourcePalette = Array.isArray(obj.palette) ? obj.palette : [];
+          state.palette = Array.from({ length: count }, (_, index) => {
+            return sourcePalette[index] ? hexToRgb(sourcePalette[index]) : defaultPaletteEntry(index, count);
+          });
+        }
+
+        const rawFrames = Array.isArray(obj.frames) && obj.frames.length > 0 ? obj.frames : [null];
+        state.frames = rawFrames.map(raw => {
+          const frame = blankFrame();
+          const data = raw || {};
+
+          if (state.bpp === 0) {
+            const colors = Array.isArray(data) ? data : data.colors;
+            if (Array.isArray(colors)) {
+              frame.colors = frame.colors.map((color, index) => colors[index] ? hexToRgb(colors[index]) : color);
+            }
+          } else {
+            const maxIndex = paletteCount() - 1;
+            if (Array.isArray(data.pixels)) {
+              frame.pixels = frame.pixels.map((value, index) => clampInt(data.pixels[index], 0, maxIndex, 0));
+            }
+
+            if (Array.isArray(data.paletteUpdates)) {
+              frame.paletteUpdates = data.paletteUpdates.slice(0, 255).map(update => ({
+                index: clampInt(update.index, 0, maxIndex, 0),
+                color: hexToRgb(update.color || update.hex || '#000000'),
+              }));
+            }
+          }
+
+          return frame;
+        });
+
+        ensurePaletteSize();
+        normalizeFrames();
+        currentSourceAudio = null;
+        selectedMediaMeta = null;
+        syncInputsFromState();
+        renderAll();
+        setStatus('JSON loaded.', 'ok');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), 'error');
+      }
+    }
+
+    function syncInputsFromState() {
+      el.widthByte.value = String(state.widthByte);
+      el.heightByte.value = String(state.heightByte);
+      el.bpp.value = String(state.bpp);
+      el.directPaintColor.value = rgbToHex(state.directPaintColor);
+    }
+
+    function renderStats() {
+      const protocolBitCount = buildProtocolBits().length;
+      el.actualGrid.textContent = `${actualWidth()} x ${actualHeight()}`;
+      el.pixelCount.textContent = pixelCount().toString();
+      el.frameCount.textContent = state.frames.length.toString();
+      el.protocolBits.textContent = protocolBitCount.toString();
+      el.tailBits.textContent = (protocolBitCount % 8).toString();
+    }
+
+    function renderAll() {
+      ensurePaletteSize();
+      normalizeFrames();
+      syncInputsFromState();
+      renderFrameSelect();
+      renderPalette();
+      renderPaletteUpdates();
+      renderStats();
+      drawGrid();
+    }
+
+    function refreshAutoSyncFromSelection() {
+      const file = el.mediaFile.files && el.mediaFile.files[0];
+      if (!file || !isVideoFile(file) || !selectedMediaMeta) return;
+
+      const settings = readMediaSettings();
+      const plan = settings.autoSyncFps && selectedMediaMeta.duration > 0
+        ? applyAutoSyncPlan(selectedMediaMeta.duration, settings)
+        : null;
+      updateMediaProgress(0, mediaInfoText(file, selectedMediaMeta, plan));
+    }
+
+    function syncAudioOptionControls() {
+      el.channelLayout.disabled = !el.includeSourceAudio.checked;
+    }
+
+    el.applyGridBtn.addEventListener('click', applyGrid);
+    el.bpp.addEventListener('change', applyBpp);
+    el.mediaFile.addEventListener('change', updateSelectedMediaInfo);
+    el.autoSyncFps.addEventListener('change', refreshAutoSyncFromSelection);
+    el.mediaMaxFrames.addEventListener('change', refreshAutoSyncFromSelection);
+    el.paletteStrategy.addEventListener('change', refreshAutoSyncFromSelection);
+    el.importMediaBtn.addEventListener('click', importMedia);
+    el.clearMediaBtn.addEventListener('click', clearMediaFile);
+    el.basePaletteColor.addEventListener('input', () => {
+      if (state.bpp === 0) return;
+      state.palette[state.selectedPaletteIndex] = hexToRgb(el.basePaletteColor.value);
+      renderAll();
+    });
+    el.selectedPaletteIndex.addEventListener('change', () => {
+      if (state.bpp === 0) return;
+      state.selectedPaletteIndex = clampInt(el.selectedPaletteIndex.value, 0, paletteCount() - 1, state.selectedPaletteIndex);
+      renderAll();
+    });
+    el.directPaintColor.addEventListener('input', () => {
+      state.directPaintColor = hexToRgb(el.directPaintColor.value);
+      syncInputsFromState();
+    });
+    el.addUpdateBtn.addEventListener('click', addPaletteUpdate);
+    el.frameSelect.addEventListener('change', () => {
+      state.currentFrame = clampInt(el.frameSelect.value, 0, state.frames.length - 1, state.currentFrame);
+      renderAll();
+    });
+    el.addFrameBtn.addEventListener('click', addFrame);
+    el.duplicateFrameBtn.addEventListener('click', duplicateFrame);
+    el.deleteFrameBtn.addEventListener('click', deleteFrame);
+    el.exportJsonBtn.addEventListener('click', exportProjectJson);
+    el.loadJsonBtn.addEventListener('click', loadProjectJson);
+    el.bitRate.addEventListener('input', refreshAutoSyncFromSelection);
+    el.startSilence.addEventListener('input', refreshAutoSyncFromSelection);
+    el.endSilence.addEventListener('input', refreshAutoSyncFromSelection);
+    el.preambleCount.addEventListener('input', refreshAutoSyncFromSelection);
+    el.includeSync.addEventListener('change', refreshAutoSyncFromSelection);
+    el.resyncEveryFrames.addEventListener('input', refreshAutoSyncFromSelection);
+    el.resyncGuardBits.addEventListener('input', refreshAutoSyncFromSelection);
+    el.includeSourceAudio.addEventListener('change', syncAudioOptionControls);
+    el.generateBtn.addEventListener('click', generate);
+    el.downloadBtn.addEventListener('click', downloadCurrent);
+    el.playBtn.addEventListener('click', togglePlayback);
+
+    el.gridCanvas.addEventListener('pointerdown', event => {
+      painting = true;
+      el.gridCanvas.setPointerCapture(event.pointerId);
+      paintFromEvent(event);
+    });
+
+    el.gridCanvas.addEventListener('pointermove', event => {
+      if (painting) {
+        paintFromEvent(event);
+      }
+    });
+
+    el.gridCanvas.addEventListener('pointerup', event => {
+      painting = false;
+      el.gridCanvas.releasePointerCapture(event.pointerId);
+    });
+
+    el.gridCanvas.addEventListener('pointerleave', () => {
+      painting = false;
+    });
+
+    ensurePaletteSize();
+    state.frames.push(blankFrame());
+    syncAudioOptionControls();
+    syncInputsFromState();
+    renderAll();
+    exportProjectJson();
+    generate();
+  </script>
+</body>
+</html>

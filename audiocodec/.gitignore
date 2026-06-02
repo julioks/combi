@@ -1,0 +1,41 @@
+# Local Arduino tooling and machine-specific config
+.arduino/
+.tools/
+arduino-cli.yaml
+arduino-cli.cmd
+
+# Arduino / embedded build output
+build/
+out/
+.pio/
+compile_commands.json
+*.ino.cpp
+*.elf
+*.hex
+*.bin
+*.uf2
+*.map
+*.lst
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.exe
+
+# Local publish/staging copies
+_git_publish*/
+
+# Editor and OS noise
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local environment files
+.env
+.env.*
+*.local

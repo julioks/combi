@@ -1,0 +1,22 @@
+# Build outputs
+build/
+dist/
+out/
+*.elf
+*.hex
+*.bin
+*.map
+
+# Arduino / PlatformIO local state
+.pio/
+.vscode/
+*.ino.cpp
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+#Test Files
+encoder-video/badapple.mp4

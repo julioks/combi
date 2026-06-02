@@ -1,0 +1,54 @@
+# Local Arduino tooling and machine-specific config
+.arduino/
+**/.arduino/
+**/.tools/
+**/arduino-cli.yaml
+**/arduino-cli.cmd
+
+# Arduino / embedded build output
+build/
+dist/
+out/
+**/build/
+**/dist/
+**/out/
+.pio/
+**/.pio/
+compile_commands.json
+*.ino.cpp
+*.elf
+*.hex
+*.bin
+*.uf2
+*.map
+*.lst
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.exe
+
+# Local publish/staging snapshots
+**/_git_publish*/
+.embedded-git/
+
+# Large local encoder media samples
+decoder/encoder-video/*.mp4
+decoder/encoder-video/*.mov
+decoder/encoder-video/*.webm
+
+# Editor and OS noise
+.vscode/
+.idea/
+.theia/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local environment files
+.env
+.env.*
+*.local
