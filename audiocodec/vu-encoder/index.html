@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VU Load Audio Encoder</title>
+  <style>
+    :root {
+      --bg: #111315;
+      --panel: #181b1f;
+      --panel-2: #20252a;
+      --panel-3: #272d33;
+      --text: #eef2f5;
+      --muted: #a8b0b8;
+      --border: #343b43;
+      --accent: #5ed5c4;
+      --accent-2: #f3c767;
+      --hot: #ed7aa7;
+      --ok: #80df95;
+      --bad: #ff8282;
+      --shadow: rgba(0, 0, 0, 0.32);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: var(--bg);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .wrap {
+      width: min(1500px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      line-height: 1.1;
+    }
+
+    h2 {
+      margin-bottom: 12px;
+      font-size: 1rem;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .status {
+      color: var(--muted);
+      min-height: 1.3em;
+      text-align: right;
+    }
+
+    .status.ok {
+      color: var(--ok);
+    }
+
+    .status.bad {
+      color: var(--bad);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 360px minmax(420px, 1fr) 390px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      padding: 14px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 12px 28px var(--shadow);
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .row.three {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      min-width: 0;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font: inherit;
+    }
+
+    input,
+    select,
+    textarea {
+      padding: 9px 10px;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(94, 213, 196, 0.16);
+    }
+
+    input[type="color"] {
+      height: 38px;
+      padding: 3px;
+      cursor: pointer;
+    }
+
+    input[type="range"] {
+      padding: 0;
+      accent-color: var(--accent);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 112px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    button {
+      padding: 9px 11px;
+      cursor: pointer;
+      transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button.primary {
+      background: #21433f;
+      border-color: #4e938a;
+    }
+
+    button.warn {
+      background: #3f3520;
+      border-color: #806934;
+    }
+
+    button.danger {
+      background: #43252c;
+      border-color: #87465a;
+    }
+
+    button.small {
+      padding: 7px 9px;
+      font-size: 0.84rem;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 10px;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .check input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .stat {
+      min-width: 0;
+      padding: 10px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .stat .k {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .stat .v {
+      display: block;
+      overflow-wrap: anywhere;
+      font-weight: 700;
+    }
+
+    .packetList {
+      display: grid;
+      gap: 8px;
+      min-height: 70px;
+    }
+
+    .packetItem {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 10px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .packetTitle {
+      min-width: 0;
+      overflow: hidden;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .packetMeta {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .paletteStops {
+      display: grid;
+      gap: 8px;
+    }
+
+    .paletteStop {
+      display: grid;
+      grid-template-columns: 74px 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .palettePreview,
+    .waveCanvas,
+    .matrixCanvas {
+      display: block;
+      width: 100%;
+      background: #0d0f11;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .palettePreview {
+      height: 44px;
+    }
+
+    .matrixCanvas {
+      aspect-ratio: 2 / 1;
+      image-rendering: pixelated;
+    }
+
+    .waveCanvas {
+      height: 150px;
+    }
+
+    audio {
+      width: 100%;
+    }
+
+    details summary {
+      cursor: pointer;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    details .detailsBody {
+      margin-top: 12px;
+    }
+
+    pre {
+      max-height: 250px;
+      margin: 0;
+      overflow: auto;
+      padding: 10px;
+      color: #dbe4ea;
+      background: #0e1012;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 1120px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        grid-template-columns: 1fr;
+      }
+
+      .status {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>VU Load Audio Encoder</h1>
+      <div id="status" class="status">Ready.</div>
+    </header>
+
+    <main class="app">
+      <section class="stack">
+        <section class="panel">
+          <h2>Layer</h2>
+          <div class="controls">
+            <label>
+              Visualizer program
+              <select id="preset"></select>
+            </label>
+            <div class="row">
+              <label>
+                Motion
+                <input id="motion" type="range" min="0" max="255" step="1" value="22" />
+              </label>
+              <label>
+                Intensity
+                <input id="intensity" type="range" min="0" max="255" step="1" value="210" />
+              </label>
+            </div>
+            <div class="buttons">
+              <button id="addLayerPaletteBtn" class="primary" type="button">Add layer + palette</button>
+              <button id="addLayerBtn" type="button">Add layer</button>
+              <button id="addPaletteBtn" type="button">Add palette</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Palette</h2>
+          <div class="controls">
+            <div class="row">
+              <label>
+                Preset
+                <select id="palettePreset"></select>
+              </label>
+              <label>
+                Interpolation
+                <select id="paletteInterpolation">
+                  <option value="0">Linear</option>
+                  <option value="1">Step</option>
+                </select>
+              </label>
+            </div>
+            <canvas id="palettePreview" class="palettePreview" width="720" height="60"></canvas>
+            <div id="paletteStops" class="paletteStops"></div>
+            <div class="buttons">
+              <button id="addStopBtn" type="button">Add stop</button>
+              <button id="sortStopsBtn" type="button">Sort</button>
+            </div>
+          </div>
+        </section>
+
+        <details class="panel">
+          <summary>Advanced Bytecode</summary>
+          <div class="detailsBody controls">
+            <label>
+              Frame VM hex
+              <textarea id="frameHex"></textarea>
+            </label>
+            <label>
+              Pixel VM hex
+              <textarea id="pixelHex"></textarea>
+            </label>
+            <div class="buttons">
+              <button id="loadPresetHexBtn" type="button">Load preset hex</button>
+              <button id="useCustomHexBtn" type="button">Use custom</button>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section class="stack">
+        <section class="panel">
+          <h2>Preview</h2>
+          <canvas id="matrixCanvas" class="matrixCanvas" width="640" height="320"></canvas>
+        </section>
+
+        <section class="panel">
+          <h2>Packet Queue</h2>
+          <div class="controls">
+            <div class="buttons">
+              <button id="addClearBtn" type="button">Add clear</button>
+              <button id="clearQueueBtn" class="danger" type="button">Clear queue</button>
+            </div>
+            <div id="packetList" class="packetList"></div>
+          </div>
+        </section>
+
+        <details class="panel" open>
+          <summary>Packet Bytes</summary>
+          <div class="detailsBody">
+            <pre id="bytePreview">No packets queued.</pre>
+          </div>
+        </details>
+      </section>
+
+      <section class="stack right">
+        <section class="panel">
+          <h2>Audio</h2>
+          <div class="controls">
+            <div class="row">
+              <label>
+                Bit rate
+                <input id="bitRate" type="number" min="1" step="1" value="1500" />
+              </label>
+              <label>
+                Sample rate
+                <input id="sampleRate" type="number" min="8000" step="1000" value="44100" />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Amplitude
+                <input id="amplitude" type="number" min="0.01" max="1" step="0.01" value="0.85" />
+              </label>
+              <label>
+                Convention
+                <select id="convention">
+                  <option value="ieee">IEEE 802.3</option>
+                  <option value="thomas">Thomas / reverse</option>
+                </select>
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Start silence ms
+                <input id="startSilence" type="number" min="0" step="10" value="150" />
+              </label>
+              <label>
+                End silence ms
+                <input id="endSilence" type="number" min="0" step="10" value="300" />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Preamble bytes
+                <input id="preambleCount" type="number" min="3" step="1" value="16" />
+              </label>
+              <label>
+                Guard bits
+                <input id="guardBits" type="number" min="2" step="1" value="12" />
+              </label>
+            </div>
+            <label class="check">
+              <input id="smoothEdges" type="checkbox" checked />
+              Smooth edges
+            </label>
+            <div class="buttons">
+              <button id="generateBtn" class="primary" type="button">Generate audio</button>
+              <button id="playBtn" type="button">Play / pause</button>
+              <button id="downloadBtn" type="button">Download WAV</button>
+            </div>
+            <audio id="player" controls></audio>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Signal</h2>
+          <div class="stats">
+            <div class="stat"><span class="k">Packets</span><span id="packetCount" class="v">0</span></div>
+            <div class="stat"><span class="k">Payload bytes</span><span id="payloadBytes" class="v">0</span></div>
+            <div class="stat"><span class="k">Signal bits</span><span id="signalBits" class="v">0</span></div>
+            <div class="stat"><span class="k">Duration</span><span id="duration" class="v">0 s</span></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Waveform</h2>
+          <canvas id="waveCanvas" class="waveCanvas" width="900" height="240"></canvas>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const LED_W = 32;
+    const LED_H = 16;
+    const PACKET_MAGIC = [0x56, 0x55];
+    const PACKET_VERSION = 1;
+    const KIND_LAYER = 1;
+    const KIND_PALETTE = 2;
+    const KIND_CLEAR = 3;
+
+    const OP = {
+      END: 0x00,
+      PUSH_U8: 0x01,
+      PUSH_S8: 0x02,
+      PUSH_FEATURE: 0x03,
+      PUSH_BAND: 0x04,
+      PUSH_WAVEFORM_M: 0x05,
+      PUSH_X: 0x06,
+      PUSH_Y: 0x07,
+      PUSH_XN: 0x08,
+      PUSH_YN: 0x09,
+      PUSH_TIME: 0x0A,
+      PUSH_RANDOM: 0x0B,
+      PUSH_STATE: 0x0C,
+      STORE_STATE: 0x0D,
+      ADD: 0x20,
+      SUB: 0x21,
+      MUL: 0x22,
+      DIV: 0x23,
+      MIN: 0x24,
+      MAX: 0x25,
+      ABS: 0x26,
+      NEG: 0x27,
+      CLAMP01: 0x28,
+      WRAP01: 0x29,
+      SIN01: 0x2A,
+      COS01: 0x2B,
+      LESS: 0x2C,
+      GREATER: 0x2D,
+      SELECT: 0x2E,
+      SMOOTHSTEP: 0x2F,
+      SAMPLE_PALETTE: 0x40,
+      EMIT_RGB: 0x41,
+      EMIT_PALETTE: 0x42,
+      SCALE_RGB: 0x43,
+    };
+
+    const FEAT = {
+      RMS: 0,
+      PEAK: 1,
+      LOUDNESS: 2,
+      SUB_BASS: 3,
+      KICK: 4,
+      BASS: 5,
+      LOW_MID: 6,
+      MID: 7,
+      TREBLE: 8,
+      TRANSIENT: 9,
+      BASS_TRANSIENT: 10,
+      TREBLE_TRANSIENT: 11,
+      STEREO_BALANCE: 12,
+      STEREO_WIDTH: 13,
+      STEREO_CORRELATION: 14,
+      SPECTRAL_TILT: 15,
+      DOMINANT_FREQUENCY: 16,
+      ZERO_CROSSING: 17,
+      AUDIO_FLOW_X: 18,
+      AUDIO_FLOW_Y: 19,
+      AUDIO_CURL: 20,
+      AUDIO_CHAOS: 21,
+      COLOR_BASE: 22,
+      WAVEFORM_GAIN: 23,
+    };
+
+    const el = {
+      status: document.getElementById('status'),
+      preset: document.getElementById('preset'),
+      motion: document.getElementById('motion'),
+      intensity: document.getElementById('intensity'),
+      addLayerPaletteBtn: document.getElementById('addLayerPaletteBtn'),
+      addLayerBtn: document.getElementById('addLayerBtn'),
+      addPaletteBtn: document.getElementById('addPaletteBtn'),
+      palettePreset: document.getElementById('palettePreset'),
+      paletteInterpolation: document.getElementById('paletteInterpolation'),
+      palettePreview: document.getElementById('palettePreview'),
+      paletteStops: document.getElementById('paletteStops'),
+      addStopBtn: document.getElementById('addStopBtn'),
+      sortStopsBtn: document.getElementById('sortStopsBtn'),
+      frameHex: document.getElementById('frameHex'),
+      pixelHex: document.getElementById('pixelHex'),
+      loadPresetHexBtn: document.getElementById('loadPresetHexBtn'),
+      useCustomHexBtn: document.getElementById('useCustomHexBtn'),
+      matrixCanvas: document.getElementById('matrixCanvas'),
+      addClearBtn: document.getElementById('addClearBtn'),
+      clearQueueBtn: document.getElementById('clearQueueBtn'),
+      packetList: document.getElementById('packetList'),
+      bytePreview: document.getElementById('bytePreview'),
+      bitRate: document.getElementById('bitRate'),
+      sampleRate: document.getElementById('sampleRate'),
+      amplitude: document.getElementById('amplitude'),
+      convention: document.getElementById('convention'),
+      startSilence: document.getElementById('startSilence'),
+      endSilence: document.getElementById('endSilence'),
+      preambleCount: document.getElementById('preambleCount'),
+      guardBits: document.getElementById('guardBits'),
+      smoothEdges: document.getElementById('smoothEdges'),
+      generateBtn: document.getElementById('generateBtn'),
+      playBtn: document.getElementById('playBtn'),
+      downloadBtn: document.getElementById('downloadBtn'),
+      player: document.getElementById('player'),
+      packetCount: document.getElementById('packetCount'),
+      payloadBytes: document.getElementById('payloadBytes'),
+      signalBits: document.getElementById('signalBits'),
+      duration: document.getElementById('duration'),
+      waveCanvas: document.getElementById('waveCanvas'),
+    };
+
+    const state = {
+      packets: [],
+      paletteStops: [],
+      customProgram: null,
+      currentBlob: null,
+      currentBlobUrl: null,
+      currentMeta: null,
+      previewState: Array.from({ length: 4 }, () => Array(32).fill(0)),
+      previewStartedAt: performance.now(),
+    };
+
+    const palettePresets = [
+      {
+        id: 'standard',
+        name: 'Standard BGR',
+        interpolation: 0,
+        stops: [
+          { position: 0, color: '#0037ff' },
+          { position: 66, color: '#00d2ff' },
+          { position: 128, color: '#00ff4c' },
+          { position: 189, color: '#ffe100' },
+          { position: 255, color: '#ff0000' },
+        ],
+      },
+      {
+        id: 'candy',
+        name: 'Warm candy',
+        interpolation: 0,
+        stops: [
+          { position: 0, color: '#ff24d2' },
+          { position: 78, color: '#ff3782' },
+          { position: 158, color: '#ff7022' },
+          { position: 255, color: '#ffda26' },
+        ],
+      },
+      {
+        id: 'aurora',
+        name: 'Aurora',
+        interpolation: 0,
+        stops: [
+          { position: 0, color: '#10f8be' },
+          { position: 84, color: '#2c74ff' },
+          { position: 168, color: '#b440ff' },
+          { position: 255, color: '#f8fcd2' },
+        ],
+      },
+      {
+        id: 'strobe',
+        name: 'Step sparks',
+        interpolation: 1,
+        stops: [
+          { position: 0, color: '#000000' },
+          { position: 72, color: '#66ffe4' },
+          { position: 150, color: '#ff4a9a' },
+          { position: 220, color: '#fff06e' },
+        ],
+      },
+    ];
+
+    const presets = [
+      {
+        id: 'loudBars',
+        name: 'Loudness bars',
+        build: buildLoudnessBars,
+      },
+      {
+        id: 'kickPulse',
+        name: 'Kick pulse field',
+        build: buildKickPulse,
+      },
+      {
+        id: 'trebleSparks',
+        name: 'Treble sparkle mask',
+        build: buildTrebleSparks,
+      },
+      {
+        id: 'flowWave',
+        name: 'Mid wave ribbon',
+        build: buildFlowWave,
+      },
+      {
+        id: 'zeroAurora',
+        name: 'Zero-cross aurora',
+        build: buildZeroAurora,
+      },
+      {
+        id: 'custom',
+        name: 'Custom hex',
+        build: buildCustomProgram,
+      },
+    ];
+
+    function setStatus(message, type = '') {
+      el.status.textContent = message;
+      el.status.className = `status ${type}`.trim();
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function clamp01(value) {
+      return clamp(value, 0, 1);
+    }
+
+    function wrap01(value) {
+      let out = value;
+      while (out < 0) out += 1;
+      while (out >= 1) out -= 1;
+      return out;
+    }
+
+    function clampByte(value) {
+      return clamp(Math.round(value), 0, 255);
+    }
+
+    function readInt(input, fallback, min, max) {
+      const parsed = parseInt(input.value, 10);
+      if (!Number.isFinite(parsed)) return fallback;
+      return clamp(parsed, min, max);
+    }
+
+    function readFloat(input, fallback, min, max) {
+      const parsed = parseFloat(input.value);
+      if (!Number.isFinite(parsed)) return fallback;
+      return clamp(parsed, min, max);
+    }
+
+    function u8(value) {
+      return [OP.PUSH_U8, clampByte(value * 255)];
+    }
+
+    function u8Raw(value) {
+      return [OP.PUSH_U8, clampByte(value)];
+    }
+
+    function s8(value) {
+      return [OP.PUSH_S8, clamp(Math.round(value), -128, 127) & 255];
+    }
+
+    function feature(id) {
+      return [OP.PUSH_FEATURE, id & 255];
+    }
+
+    function stateLoad(slot) {
+      return [OP.PUSH_STATE, slot & 31];
+    }
+
+    function stateStore(slot) {
+      return [OP.STORE_STATE, slot & 31];
+    }
+
+    function band(index) {
+      return [OP.PUSH_BAND, index & 127];
+    }
+
+    function waveform(index) {
+      return [OP.PUSH_WAVEFORM_M, index & 127];
+    }
+
+    function pushAll(target, ...chunks) {
+      for (const chunk of chunks) {
+        for (const byte of chunk) target.push(byte & 255);
+      }
+      return target;
+    }
+
+    function approxCenterDistanceOps() {
+      return [
+        OP.PUSH_XN, ...u8(0.5), OP.SUB, OP.ABS,
+        OP.PUSH_YN, ...u8(0.5), OP.SUB, OP.ABS,
+        OP.MAX,
+      ];
+    }
+
+    function buildFrameAdvance(speedByte) {
+      return [
+        ...stateLoad(0),
+        ...u8Raw(speedByte),
+        OP.ADD,
+        OP.WRAP01,
+        ...stateStore(0),
+        OP.END,
+      ];
+    }
+
+    function buildLoudnessBars(options) {
+      const motion = options.motion;
+      const intensity = options.intensity / 255;
+      const frame = buildFrameAdvance(motion);
+      const pixel = [];
+      pushAll(
+        pixel,
+        [OP.PUSH_XN],
+        stateLoad(0),
+        [OP.ADD, OP.WRAP01],
+        feature(FEAT.LOUDNESS),
+        [OP.PUSH_YN, OP.GREATER],
+        feature(FEAT.LOUDNESS),
+        u8(intensity),
+        [OP.MUL, OP.MUL, OP.EMIT_PALETTE, OP.END]
+      );
+      return { frame, pixel };
+    }
+
+    function buildKickPulse(options) {
+      const motion = options.motion;
+      const intensity = options.intensity / 255;
+      const frame = buildFrameAdvance(motion);
+      const pixel = [];
+      pushAll(
+        pixel,
+        feature(FEAT.COLOR_BASE),
+        stateLoad(0),
+        [OP.ADD, OP.WRAP01],
+        feature(FEAT.KICK),
+        feature(FEAT.BASS_TRANSIENT),
+        [OP.MAX],
+        approxCenterDistanceOps(),
+        [OP.SUB, OP.CLAMP01],
+        u8(intensity),
+        [OP.MUL, OP.EMIT_PALETTE, OP.END]
+      );
+      return { frame, pixel };
+    }
+
+    function buildTrebleSparks(options) {
+      const motion = options.motion;
+      const intensity = options.intensity / 255;
+      const frame = buildFrameAdvance(motion);
+      const pixel = [];
+      pushAll(
+        pixel,
+        [OP.PUSH_RANDOM],
+        stateLoad(0),
+        [OP.ADD, OP.WRAP01],
+        feature(FEAT.TREBLE),
+        [OP.PUSH_RANDOM, OP.GREATER],
+        feature(FEAT.TREBLE),
+        feature(FEAT.TREBLE_TRANSIENT),
+        [OP.MAX],
+        u8(intensity),
+        [OP.MUL, OP.MUL, OP.EMIT_PALETTE, OP.END]
+      );
+      return { frame, pixel };
+    }
+
+    function buildFlowWave(options) {
+      const motion = options.motion;
+      const intensity = options.intensity / 255;
+      const frame = buildFrameAdvance(motion);
+      const pixel = [];
+      pushAll(
+        pixel,
+        [OP.PUSH_XN],
+        stateLoad(0),
+        [OP.ADD, OP.WRAP01],
+        [OP.PUSH_XN],
+        stateLoad(0),
+        [OP.ADD, OP.SIN01],
+        [OP.PUSH_YN, OP.SUB, OP.ABS],
+        u8(0.09),
+        [OP.LESS],
+        feature(FEAT.MID),
+        feature(FEAT.TREBLE),
+        [OP.MAX],
+        u8(intensity),
+        [OP.MUL, OP.MUL, OP.EMIT_PALETTE, OP.END]
+      );
+      return { frame, pixel };
+    }
+
+    function buildZeroAurora(options) {
+      const motion = options.motion;
+      const intensity = options.intensity / 255;
+      const frame = buildFrameAdvance(motion);
+      const pixel = [];
+      pushAll(
+        pixel,
+        [OP.PUSH_XN, OP.PUSH_YN, OP.ADD],
+        stateLoad(0),
+        [OP.ADD, OP.WRAP01],
+        feature(FEAT.ZERO_CROSSING),
+        feature(FEAT.AUDIO_CHAOS),
+        [OP.MAX],
+        [OP.PUSH_YN],
+        u8(0.25),
+        [OP.ADD, OP.CLAMP01],
+        u8(intensity),
+        [OP.MUL, OP.MUL, OP.EMIT_PALETTE, OP.END]
+      );
+      return { frame, pixel };
+    }
+
+    function buildCustomProgram() {
+      return {
+        frame: parseHexBytes(el.frameHex.value),
+        pixel: parseHexBytes(el.pixelHex.value),
+      };
+    }
+
+    function currentProgram() {
+      const preset = presets.find(item => item.id === el.preset.value) || presets[0];
+      return preset.build({
+        motion: readInt(el.motion, 22, 0, 255),
+        intensity: readInt(el.intensity, 210, 0, 255),
+      });
+    }
+
+    function byteHex(byte) {
+      return (byte & 255).toString(16).padStart(2, '0').toUpperCase();
+    }
+
+    function bytesToHex(bytes, columns = 16) {
+      const out = [];
+      for (let i = 0; i < bytes.length; i += columns) {
+        out.push(bytes.slice(i, i + columns).map(byteHex).join(' '));
+      }
+      return out.join('\n');
+    }
+
+    function parseHexBytes(text) {
+      const matches = String(text || '').replace(/0x/gi, ' ').match(/[0-9a-fA-F]{1,2}/g) || [];
+      return matches.map(token => parseInt(token, 16) & 255);
+    }
+
+    function rgbFromHex(hex) {
+      const clean = String(hex || '').replace('#', '');
+      return {
+        r: parseInt(clean.slice(0, 2), 16) || 0,
+        g: parseInt(clean.slice(2, 4), 16) || 0,
+        b: parseInt(clean.slice(4, 6), 16) || 0,
+      };
+    }
+
+    function rgbToHex(color) {
+      return `#${byteHex(color.r)}${byteHex(color.g)}${byteHex(color.b)}`;
+    }
+
+    function sortedStops() {
+      return state.paletteStops
+        .map(stop => ({
+          position: clampByte(stop.position),
+          color: stop.color,
+        }))
+        .sort((a, b) => a.position - b.position)
+        .slice(0, 16);
+    }
+
+    function sampleStops(stops, t, interpolation = 0) {
+      const list = stops.length ? stops : palettePresets[0].stops;
+      const pos = clampByte(t * 255);
+      if (pos <= list[0].position || list.length === 1) return rgbFromHex(list[0].color);
+
+      for (let i = 0; i < list.length - 1; i++) {
+        const a = list[i];
+        const z = list[i + 1];
+        if (pos > z.position) continue;
+        if (interpolation === 1 || z.position <= a.position) return rgbFromHex(a.color);
+        const mix = (pos - a.position) / (z.position - a.position);
+        const ac = rgbFromHex(a.color);
+        const zc = rgbFromHex(z.color);
+        return {
+          r: ac.r + (zc.r - ac.r) * mix,
+          g: ac.g + (zc.g - ac.g) * mix,
+          b: ac.b + (zc.b - ac.b) * mix,
+        };
+      }
+
+      return rgbFromHex(list[list.length - 1].color);
+    }
+
+    function layerPayload(program) {
+      const frame = program.frame.slice(0, 768);
+      const pixel = program.pixel.slice(0, 768 - frame.length);
+      if (pixel.length === 0) throw new Error('Pixel program is empty.');
+      if (frame.length + pixel.length > 768) throw new Error('Layer program exceeds 768 bytes.');
+      return [
+        0,
+        (frame.length >> 8) & 255,
+        frame.length & 255,
+        (pixel.length >> 8) & 255,
+        pixel.length & 255,
+        ...frame,
+        ...pixel,
+      ];
+    }
+
+    function palettePayload() {
+      const stops = sortedStops();
+      if (stops.length === 0) throw new Error('Palette has no stops.');
+      const payload = [parseInt(el.paletteInterpolation.value, 10) & 1, stops.length & 255];
+      for (const stop of stops) {
+        const color = rgbFromHex(stop.color);
+        payload.push(clampByte(stop.position), clampByte(color.r), clampByte(color.g), clampByte(color.b));
+      }
+      return payload;
+    }
+
+    function makePacket(kind, payload = []) {
+      if (payload.length > 65535) throw new Error('Payload exceeds 65535 bytes.');
+      return [
+        ...PACKET_MAGIC,
+        PACKET_VERSION,
+        kind & 255,
+        (payload.length >> 8) & 255,
+        payload.length & 255,
+        ...payload,
+      ];
+    }
+
+    function addPacket(kind, name, payload = []) {
+      const bytes = makePacket(kind, payload);
+      state.packets.push({ kind, name, payloadLength: payload.length, bytes });
+      updatePacketUi();
+      setStatus(`${name} queued.`, 'ok');
+    }
+
+    function addLayerPacket() {
+      const program = currentProgram();
+      const preset = presets.find(item => item.id === el.preset.value);
+      addPacket(KIND_LAYER, `Layer: ${preset ? preset.name : 'Custom'}`, layerPayload(program));
+    }
+
+    function addPalettePacket() {
+      addPacket(KIND_PALETTE, 'Palette', palettePayload());
+    }
+
+    function addLayerAndPalette() {
+      addLayerPacket();
+      addPalettePacket();
+    }
+
+    function addClearPacket() {
+      addPacket(KIND_CLEAR, 'Clear VU RAM', []);
+    }
+
+    function removePacket(index) {
+      state.packets.splice(index, 1);
+      updatePacketUi();
+      setStatus('Packet removed.');
+    }
+
+    function renderPacketList() {
+      el.packetList.innerHTML = '';
+      if (state.packets.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'packetItem';
+        empty.innerHTML = '<div><div class="packetTitle">Empty</div><div class="packetMeta">0 packets</div></div>';
+        el.packetList.appendChild(empty);
+        return;
+      }
+
+      state.packets.forEach((packet, index) => {
+        const item = document.createElement('div');
+        item.className = 'packetItem';
+        item.innerHTML = `
+          <div>
+            <div class="packetTitle">${index + 1}. ${packet.name}</div>
+            <div class="packetMeta">kind ${packet.kind}, ${packet.payloadLength} payload bytes, ${packet.bytes.length} total bytes</div>
+          </div>
+        `;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'small';
+        button.textContent = 'Remove';
+        button.addEventListener('click', () => removePacket(index));
+        item.appendChild(button);
+        el.packetList.appendChild(item);
+      });
+    }
+
+    function updatePacketUi() {
+      renderPacketList();
+      const payloadBytes = state.packets.reduce((sum, packet) => sum + packet.payloadLength, 0);
+      const totalBytes = state.packets.reduce((sum, packet) => sum + packet.bytes.length, 0);
+      el.packetCount.textContent = String(state.packets.length);
+      el.payloadBytes.textContent = String(payloadBytes);
+      const signalBits = estimateSignalBits();
+      el.signalBits.textContent = String(signalBits);
+      el.duration.textContent = formatSeconds(estimatedDuration(signalBits));
+      el.bytePreview.textContent = state.packets.length
+        ? state.packets.map((packet, index) => `#${index + 1} ${packet.name}\n${bytesToHex(packet.bytes)}`).join('\n\n')
+        : 'No packets queued.';
+      drawWave(new Float32Array(0), 44100);
+      void totalBytes;
+    }
+
+    function estimateSignalBits() {
+      if (state.packets.length === 0) return 0;
+      const preamble = readInt(el.preambleCount, 16, 3, 10000) * 8;
+      const sync = 8;
+      const guard = readInt(el.guardBits, 12, 2, 1000);
+      let bits = 0;
+      state.packets.forEach((packet, index) => {
+        if (index > 0) bits += guard;
+        bits += preamble + sync + packet.bytes.length * 8;
+      });
+      return bits;
+    }
+
+    function estimatedDuration(signalBits) {
+      const bitRate = readFloat(el.bitRate, 1500, 1, 200000);
+      const startSilence = readFloat(el.startSilence, 150, 0, 60000) / 1000;
+      const endSilence = readFloat(el.endSilence, 300, 0, 60000) / 1000;
+      return signalBits > 0 ? startSilence + signalBits / bitRate + endSilence : 0;
+    }
+
+    function formatSeconds(seconds) {
+      if (!Number.isFinite(seconds) || seconds <= 0) return '0 s';
+      if (seconds < 1) return `${seconds.toFixed(3)} s`;
+      if (seconds < 10) return `${seconds.toFixed(2)} s`;
+      return `${seconds.toFixed(1)} s`;
+    }
+
+    function pushByteBits(bits, byte) {
+      for (let bit = 7; bit >= 0; bit--) bits.push((byte >> bit) & 1);
+    }
+
+    function bytesToBits(bytes) {
+      const bits = [];
+      for (const byte of bytes) pushByteBits(bits, byte);
+      return bits;
+    }
+
+    function manchesterLevelForHalf(bits, halfIndex, convention) {
+      const bit = bits[Math.floor(halfIndex / 2)] || 0;
+      const firstHalf = (halfIndex & 1) === 0;
+      if (convention === 'ieee') {
+        return bit === 0 ? (firstHalf ? -1 : 1) : (firstHalf ? 1 : -1);
+      }
+      return bit === 0 ? (firstHalf ? 1 : -1) : (firstHalf ? -1 : 1);
+    }
+
+    function firstPreambleHalfLevel(convention) {
+      return manchesterLevelForHalf([0], 0, convention);
+    }
+
+    function buildSignalHalfLevels() {
+      if (state.packets.length === 0) throw new Error('No packets queued.');
+      const preambleCount = readInt(el.preambleCount, 16, 3, 10000);
+      const guardBits = readInt(el.guardBits, 12, 2, 1000);
+      const convention = el.convention.value;
+      const halves = [];
+
+      state.packets.forEach((packet, index) => {
+        if (index > 0) {
+          const level = firstPreambleHalfLevel(convention);
+          for (let i = 0; i < guardBits * 2; i++) halves.push(level);
+        }
+
+        const bytes = [];
+        for (let i = 0; i < preambleCount; i++) bytes.push(0x55);
+        bytes.push(0xD5);
+        bytes.push(...packet.bytes);
+        const bits = bytesToBits(bytes);
+        for (let half = 0; half < bits.length * 2; half++) {
+          halves.push(manchesterLevelForHalf(bits, half, convention));
+        }
+      });
+
+      return halves;
+    }
+
+    function generatePcm() {
+      const bitRate = readFloat(el.bitRate, 1500, 1, 200000);
+      const sampleRate = readInt(el.sampleRate, 44100, 8000, 384000);
+      const amplitude = readFloat(el.amplitude, 0.85, 0.01, 1);
+      const startSilenceSec = readFloat(el.startSilence, 150, 0, 60000) / 1000;
+      const endSilenceSec = readFloat(el.endSilence, 300, 0, 60000) / 1000;
+      const smoothEdges = el.smoothEdges.checked;
+
+      if (sampleRate < bitRate * 8) throw new Error('Sample rate is too low for that bit rate.');
+
+      const halfLevels = buildSignalHalfLevels();
+      const halfBitDur = 1 / (bitRate * 2);
+      const dataDur = halfLevels.length * halfBitDur;
+      const totalDur = startSilenceSec + dataDur + endSilenceSec;
+      const totalSamples = Math.ceil(totalDur * sampleRate);
+      const samples = new Float32Array(totalSamples);
+      const startTime = startSilenceSec;
+      const endDataTime = startTime + dataDur;
+      const rampSamples = smoothEdges ? Math.max(1, Math.round(sampleRate * Math.min(halfBitDur * 0.15, 0.00035))) : 0;
+
+      for (let i = 0; i < totalSamples; i++) {
+        const t = i / sampleRate;
+        let value = 0;
+
+        if (t >= startTime && t < endDataTime) {
+          const dataT = t - startTime;
+          const halfIndex = Math.min(halfLevels.length - 1, Math.floor(dataT / halfBitDur));
+          value = halfLevels[halfIndex] * amplitude;
+
+          if (rampSamples > 0) {
+            const sampleInHalf = Math.floor((dataT - halfIndex * halfBitDur) * sampleRate);
+            if (sampleInHalf < rampSamples && halfIndex > 0) {
+              const previous = halfLevels[halfIndex - 1] * amplitude;
+              const mix = sampleInHalf / rampSamples;
+              value = previous + (value - previous) * mix;
+            }
+          }
+        }
+
+        samples[i] = value;
+      }
+
+      return {
+        samples,
+        sampleRate,
+        meta: {
+          bitRate,
+          sampleRate,
+          totalSamples,
+          totalDuration: totalDur,
+          signalBits: halfLevels.length / 2,
+          packets: state.packets.length,
+          payloadBytes: state.packets.reduce((sum, packet) => sum + packet.payloadLength, 0),
+        },
+      };
+    }
+
+    function pcmToWavBlob(samples, sampleRate) {
+      const numChannels = 1;
+      const bitsPerSample = 16;
+      const blockAlign = numChannels * bitsPerSample / 8;
+      const byteRate = sampleRate * blockAlign;
+      const dataSize = samples.length * blockAlign;
+      const buffer = new ArrayBuffer(44 + dataSize);
+      const view = new DataView(buffer);
+
+      function writeString(offset, value) {
+        for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+      }
+
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + dataSize, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitsPerSample, true);
+      writeString(36, 'data');
+      view.setUint32(40, dataSize, true);
+
+      let offset = 44;
+      for (const sample of samples) {
+        const s = clamp(sample, -1, 1);
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
+      }
+
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    function generateAudio() {
+      try {
+        const result = generatePcm();
+        const blob = pcmToWavBlob(result.samples, result.sampleRate);
+        if (state.currentBlobUrl) URL.revokeObjectURL(state.currentBlobUrl);
+        state.currentBlob = blob;
+        state.currentBlobUrl = URL.createObjectURL(blob);
+        state.currentMeta = result.meta;
+        el.player.src = state.currentBlobUrl;
+        updateStatsFromMeta(result.meta);
+        drawWave(result.samples, result.sampleRate);
+        setStatus(`Generated ${result.meta.packets} packets, ${formatSeconds(result.meta.totalDuration)}.`, 'ok');
+        return true;
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || String(error), 'bad');
+        return false;
+      }
+    }
+
+    function updateStatsFromMeta(meta) {
+      el.packetCount.textContent = String(meta.packets);
+      el.payloadBytes.textContent = String(meta.payloadBytes);
+      el.signalBits.textContent = String(meta.signalBits);
+      el.duration.textContent = formatSeconds(meta.totalDuration);
+    }
+
+    function downloadAudio() {
+      if (!generateAudio()) return;
+      const anchor = document.createElement('a');
+      anchor.href = state.currentBlobUrl;
+      anchor.download = `vu_load_${state.packets.length}pkt_${Math.round(state.currentMeta.bitRate)}bps.wav`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    }
+
+    function togglePlayback() {
+      if (el.player.paused) {
+        if (!state.currentBlobUrl && !generateAudio()) return;
+        el.player.play();
+      } else {
+        el.player.pause();
+      }
+    }
+
+    function drawWave(samples, sampleRate) {
+      const canvas = el.waveCanvas;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#0d0f11';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 6; i++) {
+        const y = (h / 6) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = 'rgba(94,213,196,0.95)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const count = samples.length ? Math.min(samples.length, Math.max(2000, Math.round(sampleRate * 0.12))) : 1;
+      for (let x = 0; x < w; x++) {
+        const index = samples.length ? Math.min(count - 1, Math.floor(x / Math.max(1, w - 1) * count)) : 0;
+        const value = samples.length ? samples[index] : 0;
+        const y = h / 2 - value * h * 0.38;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(243,199,103,0.72)';
+      ctx.beginPath();
+      ctx.moveTo(0, h / 2);
+      ctx.lineTo(w, h / 2);
+      ctx.stroke();
+    }
+
+    function drawPalettePreview() {
+      const canvas = el.palettePreview;
+      const ctx = canvas.getContext('2d');
+      const stops = sortedStops();
+      const interpolation = parseInt(el.paletteInterpolation.value, 10) || 0;
+      for (let x = 0; x < canvas.width; x++) {
+        const color = sampleStops(stops, x / Math.max(1, canvas.width - 1), interpolation);
+        ctx.fillStyle = rgbToHex(color);
+        ctx.fillRect(x, 0, 1, canvas.height);
+      }
+    }
+
+    function renderPaletteStops() {
+      el.paletteStops.innerHTML = '';
+      state.paletteStops.forEach((stop, index) => {
+        const row = document.createElement('div');
+        row.className = 'paletteStop';
+        row.innerHTML = `
+          <label>
+            Pos
+            <input type="number" min="0" max="255" step="1" value="${clampByte(stop.position)}" />
+          </label>
+          <label>
+            Color
+            <input type="color" value="${stop.color}" />
+          </label>
+        `;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'small';
+        remove.textContent = 'Remove';
+        const [posInput, colorInput] = row.querySelectorAll('input');
+        posInput.addEventListener('input', () => {
+          stop.position = clampByte(posInput.value);
+          drawPalettePreview();
+        });
+        colorInput.addEventListener('input', () => {
+          stop.color = colorInput.value;
+          drawPalettePreview();
+        });
+        remove.addEventListener('click', () => {
+          state.paletteStops.splice(index, 1);
+          renderPaletteStops();
+          drawPalettePreview();
+        });
+        row.appendChild(remove);
+        el.paletteStops.appendChild(row);
+      });
+      drawPalettePreview();
+    }
+
+    function loadPalettePreset(id) {
+      const preset = palettePresets.find(item => item.id === id) || palettePresets[0];
+      el.paletteInterpolation.value = String(preset.interpolation);
+      state.paletteStops = preset.stops.map(stop => ({ ...stop }));
+      renderPaletteStops();
+    }
+
+    function loadCurrentPresetHex() {
+      const selected = presets.find(item => item.id === el.preset.value);
+      if (!selected || selected.id === 'custom') return;
+      const program = selected.build({
+        motion: readInt(el.motion, 22, 0, 255),
+        intensity: readInt(el.intensity, 210, 0, 255),
+      });
+      el.frameHex.value = bytesToHex(program.frame);
+      el.pixelHex.value = bytesToHex(program.pixel);
+    }
+
+    function random01(x, y, layerIndex, frameIndex) {
+      let value = 0x9E3779B9 >>> 0;
+      value ^= Math.imul(x, 0x85EBCA6B) >>> 0;
+      value ^= Math.imul(y, 0xC2B2AE35) >>> 0;
+      value ^= Math.imul(layerIndex, 0x27D4EB2D) >>> 0;
+      value ^= Math.imul(frameIndex, 0x165667B1) >>> 0;
+      value ^= value >>> 16;
+      value = Math.imul(value, 0x7FEB352D) >>> 0;
+      value ^= value >>> 15;
+      return (value & 0x00FFFFFF) / 16777215;
+    }
+
+    function fakeAudio(time) {
+      const kick = clamp01(0.30 + Math.sin(time * 5.2) * 0.30 + Math.sin(time * 1.7) * 0.15);
+      const treble = clamp01(0.45 + Math.sin(time * 7.1 + 1.4) * 0.24);
+      const mid = clamp01(0.52 + Math.sin(time * 2.4 + 0.7) * 0.28);
+      const loudness = clamp01(0.36 + kick * 0.42 + mid * 0.22);
+      return {
+        features: {
+          [FEAT.RMS]: loudness * 0.72,
+          [FEAT.PEAK]: Math.max(kick, treble),
+          [FEAT.LOUDNESS]: loudness,
+          [FEAT.SUB_BASS]: kick * 0.72,
+          [FEAT.KICK]: kick,
+          [FEAT.BASS]: kick * 0.82,
+          [FEAT.LOW_MID]: mid * 0.86,
+          [FEAT.MID]: mid,
+          [FEAT.TREBLE]: treble,
+          [FEAT.TRANSIENT]: clamp01(Math.sin(time * 5.2) * 0.5 + 0.5),
+          [FEAT.BASS_TRANSIENT]: clamp01(kick - 0.45) * 1.8,
+          [FEAT.TREBLE_TRANSIENT]: clamp01(treble - 0.48) * 1.7,
+          [FEAT.STEREO_BALANCE]: Math.sin(time * 0.9) * 0.55,
+          [FEAT.STEREO_WIDTH]: 0.65,
+          [FEAT.STEREO_CORRELATION]: 0.4,
+          [FEAT.SPECTRAL_TILT]: treble / (kick + treble + 0.001),
+          [FEAT.DOMINANT_FREQUENCY]: wrap01(0.4 + Math.sin(time * 0.31) * 0.22),
+          [FEAT.ZERO_CROSSING]: clamp01(0.32 + treble * 0.54),
+          [FEAT.AUDIO_FLOW_X]: Math.sin(time * 1.3) * 0.5,
+          [FEAT.AUDIO_FLOW_Y]: Math.cos(time * 1.1) * 0.5,
+          [FEAT.AUDIO_CURL]: Math.sin(time * 0.7) * 0.7,
+          [FEAT.AUDIO_CHAOS]: clamp01(treble * 0.7 + Math.sin(time * 3.3) * 0.2),
+          [FEAT.COLOR_BASE]: wrap01(time * 0.05 + treble * 0.25),
+          [FEAT.WAVEFORM_GAIN]: 0.45,
+        },
+        bands: Array.from({ length: 128 }, (_, i) => clamp01(Math.sin(time * 2 + i * 0.19) * 0.45 + 0.50)),
+        waveform: Array.from({ length: 128 }, (_, i) => Math.sin(time * 5 + i * 0.25) * 0.7),
+      };
+    }
+
+    function runVm(program, layerIndex, audio, x, y, timeMs, out) {
+      const stack = [];
+      let pc = 0;
+      let guard = 0;
+      const stateSlots = state.previewState[layerIndex] || state.previewState[0];
+
+      function pop() {
+        return stack.length ? stack.pop() : 0;
+      }
+
+      function push(value) {
+        if (stack.length < 24) stack.push(value);
+      }
+
+      while (pc < program.length && guard++ < 768) {
+        const op = program[pc++] & 255;
+        if (op === OP.END) return out;
+        if (op === OP.PUSH_U8) { push((program[pc++] || 0) / 255); continue; }
+        if (op === OP.PUSH_S8) {
+          const byte = program[pc++] || 0;
+          push((byte > 127 ? byte - 256 : byte) / 127);
+          continue;
+        }
+        if (op === OP.PUSH_FEATURE) { push(audio.features[program[pc++] || 0] || 0); continue; }
+        if (op === OP.PUSH_BAND) { push(audio.bands[program[pc++] || 0] || 0); continue; }
+        if (op === OP.PUSH_WAVEFORM_M) { push(audio.waveform[program[pc++] || 0] || 0); continue; }
+        if (op === OP.PUSH_X) { push(x); continue; }
+        if (op === OP.PUSH_Y) { push(y); continue; }
+        if (op === OP.PUSH_XN) { push(x / (LED_W - 1)); continue; }
+        if (op === OP.PUSH_YN) { push(y / (LED_H - 1)); continue; }
+        if (op === OP.PUSH_TIME) { push(timeMs * 0.001); continue; }
+        if (op === OP.PUSH_RANDOM) { push(random01(x, y, layerIndex, Math.floor(timeMs / 33))); continue; }
+        if (op === OP.PUSH_STATE) { push(stateSlots[(program[pc++] || 0) & 31] || 0); continue; }
+        if (op === OP.STORE_STATE) { stateSlots[(program[pc++] || 0) & 31] = pop(); continue; }
+        if (op === OP.SAMPLE_PALETTE) {
+          const color = sampleStops(sortedStops(), pop(), parseInt(el.paletteInterpolation.value, 10) || 0);
+          push(color.r / 255); push(color.g / 255); push(color.b / 255);
+          continue;
+        }
+        if (op === OP.EMIT_RGB) {
+          out.b = clamp01(pop()); out.g = clamp01(pop()); out.r = clamp01(pop());
+          continue;
+        }
+        if (op === OP.EMIT_PALETTE) {
+          const level = clamp01(pop());
+          const tone = pop();
+          const color = sampleStops(sortedStops(), tone, parseInt(el.paletteInterpolation.value, 10) || 0);
+          out.r = color.r / 255 * level;
+          out.g = color.g / 255 * level;
+          out.b = color.b / 255 * level;
+          continue;
+        }
+        if (op === OP.SCALE_RGB) {
+          const scale = pop();
+          if (stack.length >= 3) {
+            stack[stack.length - 1] *= scale;
+            stack[stack.length - 2] *= scale;
+            stack[stack.length - 3] *= scale;
+          }
+          continue;
+        }
+
+        const b = () => pop();
+        const a = () => pop();
+        if (op === OP.ADD) { const rb = b(); push(a() + rb); }
+        else if (op === OP.SUB) { const rb = b(); push(a() - rb); }
+        else if (op === OP.MUL) { const rb = b(); push(a() * rb); }
+        else if (op === OP.DIV) { const rb = b(); push(Math.abs(rb) > 0.000001 ? a() / rb : 0); }
+        else if (op === OP.MIN) { const rb = b(); push(Math.min(a(), rb)); }
+        else if (op === OP.MAX) { const rb = b(); push(Math.max(a(), rb)); }
+        else if (op === OP.ABS) push(Math.abs(a()));
+        else if (op === OP.NEG) push(-a());
+        else if (op === OP.CLAMP01) push(clamp01(a()));
+        else if (op === OP.WRAP01) push(wrap01(a()));
+        else if (op === OP.SIN01) push(0.5 + Math.sin(a() * Math.PI * 2) * 0.5);
+        else if (op === OP.COS01) push(0.5 + Math.cos(a() * Math.PI * 2) * 0.5);
+        else if (op === OP.LESS) { const rb = b(); push(a() < rb ? 1 : 0); }
+        else if (op === OP.GREATER) { const rb = b(); push(a() > rb ? 1 : 0); }
+        else if (op === OP.SELECT) { const falseValue = b(); const trueValue = b(); push(a() >= 0.5 ? trueValue : falseValue); }
+        else if (op === OP.SMOOTHSTEP) { const v = clamp01(a()); push(v * v * (3 - 2 * v)); }
+      }
+      return out;
+    }
+
+    function drawMatrixPreview() {
+      const canvas = el.matrixCanvas;
+      const ctx = canvas.getContext('2d');
+      const cellW = canvas.width / LED_W;
+      const cellH = canvas.height / LED_H;
+      const time = (performance.now() - state.previewStartedAt) / 1000;
+      const audio = fakeAudio(time);
+      const program = currentProgram();
+      const frame = program.frame || [];
+      const pixel = program.pixel || [];
+
+      runVm(frame, 0, audio, 0, 0, time * 1000, { r: 0, g: 0, b: 0 });
+
+      ctx.fillStyle = '#0d0f11';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < LED_H; y++) {
+        for (let x = 0; x < LED_W; x++) {
+          const color = runVm(pixel, 0, audio, x, y, time * 1000, { r: 0, g: 0, b: 0 });
+          ctx.fillStyle = `rgb(${clampByte(color.r * 255)}, ${clampByte(color.g * 255)}, ${clampByte(color.b * 255)})`;
+          ctx.fillRect(x * cellW + 1, (LED_H - 1 - y) * cellH + 1, Math.max(1, cellW - 2), Math.max(1, cellH - 2));
+        }
+      }
+      requestAnimationFrame(drawMatrixPreview);
+    }
+
+    function populateSelects() {
+      el.preset.innerHTML = presets.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+      el.palettePreset.innerHTML = palettePresets.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+    }
+
+    function bindEvents() {
+      el.addLayerPaletteBtn.addEventListener('click', addLayerAndPalette);
+      el.addLayerBtn.addEventListener('click', addLayerPacket);
+      el.addPaletteBtn.addEventListener('click', addPalettePacket);
+      el.addClearBtn.addEventListener('click', addClearPacket);
+      el.clearQueueBtn.addEventListener('click', () => {
+        state.packets = [];
+        updatePacketUi();
+        setStatus('Queue cleared.');
+      });
+      el.addStopBtn.addEventListener('click', () => {
+        if (state.paletteStops.length >= 16) return;
+        state.paletteStops.push({ position: 255, color: '#ffffff' });
+        renderPaletteStops();
+      });
+      el.sortStopsBtn.addEventListener('click', () => {
+        state.paletteStops = sortedStops();
+        renderPaletteStops();
+      });
+      el.palettePreset.addEventListener('change', () => loadPalettePreset(el.palettePreset.value));
+      el.paletteInterpolation.addEventListener('change', drawPalettePreview);
+      el.preset.addEventListener('change', loadCurrentPresetHex);
+      el.motion.addEventListener('input', loadCurrentPresetHex);
+      el.intensity.addEventListener('input', loadCurrentPresetHex);
+      el.loadPresetHexBtn.addEventListener('click', loadCurrentPresetHex);
+      el.useCustomHexBtn.addEventListener('click', () => {
+        el.preset.value = 'custom';
+        setStatus('Custom bytecode active.');
+      });
+      el.generateBtn.addEventListener('click', generateAudio);
+      el.playBtn.addEventListener('click', togglePlayback);
+      el.downloadBtn.addEventListener('click', downloadAudio);
+      for (const input of [el.bitRate, el.sampleRate, el.startSilence, el.endSilence, el.preambleCount, el.guardBits]) {
+        input.addEventListener('input', updatePacketUi);
+      }
+    }
+
+    function init() {
+      populateSelects();
+      loadPalettePreset('standard');
+      loadCurrentPresetHex();
+      bindEvents();
+      addClearPacket();
+      addLayerAndPalette();
+      updatePacketUi();
+      drawMatrixPreview();
+    }
+
+    init();
+  </script>
+</body>
+</html>

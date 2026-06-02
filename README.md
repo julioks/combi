@@ -8,6 +8,8 @@ ESP32 sketches for audio-carried LED data and audio-reactive VU visualizers.
   media encoders. The existing video payload format is kept intact.
 - `audiocodec/`: PCM1861/I2S audio analyzer plus combined firmware scaffolding
   for video zerocrossing mode, VU-load mode, and raw-audio VU rendering.
+- `audiocodec/vu-encoder/`: browser encoder for VU layer/palette packets and
+  Manchester WAV output.
 
 ## Modes
 

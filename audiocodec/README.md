@@ -91,6 +91,8 @@ The mode button cycles:
 Entering `video-zerocross` clears loaded VU RAM. VU packets are documented in
 `VU_PROTOCOL.md`.
 
+Open `vu-encoder/index.html` directly in a browser to generate VU-load WAVs.
+
 ## Project Layout
 
 - `audiocodec.ino` contains ESP32 setup, I2S input, zerocrossing mode handling,
@@ -100,6 +102,8 @@ Entering `video-zerocross` clears loaded VU RAM. VU packets are documented in
 - `video/` contains the preserved LED-frame receiver for the existing video
   payload format.
 - `vu/` contains the VU packet parser, RAM store, and bytecode runtime.
+- `vu-encoder/` contains the browser tool for compiling VU bytecode and
+  palettes into Manchester WAV packets.
 - `visualiser/` contains shared canvas/palette helpers and the built-in mode 0
   spectrum fallback. The older C++ effect files are no longer the active VU
   mechanism.
