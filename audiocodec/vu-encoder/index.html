@@ -395,10 +395,44 @@
                 <input id="intensity" type="range" min="0" max="255" step="1" value="210" />
               </label>
             </div>
+            <div class="row">
+              <label>
+                Audio source
+                <select id="audioSource"></select>
+              </label>
+              <label>
+                Color driver
+                <select id="toneSource"></select>
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Gate
+                <input id="gate" type="range" min="0" max="245" step="1" value="100" />
+              </label>
+              <label>
+                Ring width
+                <input id="ringWidth" type="range" min="18" max="86" step="1" value="38" />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Spawn map
+                <select id="spawnMap"></select>
+              </label>
+              <label>
+                Trail fade
+                <input id="trailFade" type="range" min="130" max="252" step="1" value="218" />
+              </label>
+            </div>
+            <label class="check">
+              <input id="trailLayer" type="checkbox" />
+              Trail memory
+            </label>
             <div class="buttons">
-              <button id="addLayerPaletteBtn" class="primary" type="button">Add layer + palette</button>
-              <button id="addLayerBtn" type="button">Add layer</button>
-              <button id="addPaletteBtn" type="button">Add palette</button>
+              <button id="addLayerPaletteBtn" class="primary" type="button">Layer + palette</button>
+              <button id="addLayerBtn" type="button">Layer only</button>
+              <button id="addPaletteBtn" type="button">Palette only</button>
             </div>
           </div>
         </section>
@@ -450,15 +484,15 @@
       <section class="stack">
         <section class="panel">
           <h2>Preview</h2>
-          <canvas id="matrixCanvas" class="matrixCanvas" width="640" height="320"></canvas>
+          <canvas id="matrixCanvas" class="matrixCanvas" width="500" height="500"></canvas>
         </section>
 
         <section class="panel">
-          <h2>Packet Queue</h2>
+          <h2>Current Stream</h2>
           <div class="controls">
             <div class="buttons">
-              <button id="addClearBtn" type="button">Add clear</button>
-              <button id="clearQueueBtn" class="danger" type="button">Clear queue</button>
+              <button id="addClearBtn" type="button">Clear only</button>
+              <button id="clearQueueBtn" class="danger" type="button">Empty stream</button>
             </div>
             <div id="packetList" class="packetList"></div>
           </div>
@@ -467,7 +501,7 @@
         <details class="panel" open>
           <summary>Packet Bytes</summary>
           <div class="detailsBody">
-            <pre id="bytePreview">No packets queued.</pre>
+            <pre id="bytePreview">No packets in current stream.</pre>
           </div>
         </details>
       </section>
@@ -551,13 +585,15 @@
   </div>
 
   <script>
-    const LED_W = 32;
-    const LED_H = 16;
+    const LED_W = 20;
+    const LED_H = 20;
     const PACKET_MAGIC = [0x56, 0x55];
     const PACKET_VERSION = 1;
     const KIND_LAYER = 1;
     const KIND_PALETTE = 2;
     const KIND_CLEAR = 3;
+    const LAYER_FLAG_TRAIL = 0x01;
+    const TRAIL_FADE_SLOT = 31;
 
     const OP = {
       END: 0x00,
@@ -574,6 +610,9 @@
       PUSH_RANDOM: 0x0B,
       PUSH_STATE: 0x0C,
       STORE_STATE: 0x0D,
+      DUP: 0x10,
+      DROP: 0x11,
+      SWAP: 0x12,
       ADD: 0x20,
       SUB: 0x21,
       MUL: 0x22,
@@ -590,6 +629,7 @@
       GREATER: 0x2D,
       SELECT: 0x2E,
       SMOOTHSTEP: 0x2F,
+      HYPOT: 0x30,
       SAMPLE_PALETTE: 0x40,
       EMIT_RGB: 0x41,
       EMIT_PALETTE: 0x42,
@@ -628,6 +668,13 @@
       preset: document.getElementById('preset'),
       motion: document.getElementById('motion'),
       intensity: document.getElementById('intensity'),
+      audioSource: document.getElementById('audioSource'),
+      toneSource: document.getElementById('toneSource'),
+      gate: document.getElementById('gate'),
+      ringWidth: document.getElementById('ringWidth'),
+      spawnMap: document.getElementById('spawnMap'),
+      trailFade: document.getElementById('trailFade'),
+      trailLayer: document.getElementById('trailLayer'),
       addLayerPaletteBtn: document.getElementById('addLayerPaletteBtn'),
       addLayerBtn: document.getElementById('addLayerBtn'),
       addPaletteBtn: document.getElementById('addPaletteBtn'),
@@ -673,7 +720,9 @@
       currentBlob: null,
       currentBlobUrl: null,
       currentMeta: null,
+      streamMode: 'layerPalette',
       previewState: Array.from({ length: 4 }, () => Array(32).fill(0)),
+      previewTrail: Array.from({ length: LED_W * LED_H }, () => ({ r: 0, g: 0, b: 0 })),
       previewStartedAt: performance.now(),
     };
 
@@ -725,35 +774,51 @@
       },
     ];
 
+    const audioSources = [
+      { id: 'loudness', name: 'Loudness', ops: () => feature(FEAT.LOUDNESS) },
+      { id: 'kick', name: 'Kick / low hit', ops: () => [...feature(FEAT.KICK), ...feature(FEAT.BASS_TRANSIENT), OP.MAX] },
+      { id: 'bass', name: 'Bass', ops: () => feature(FEAT.BASS) },
+      { id: 'lowMid', name: 'Low mid', ops: () => feature(FEAT.LOW_MID) },
+      { id: 'mid', name: 'Mid', ops: () => feature(FEAT.MID) },
+      { id: 'treble', name: 'Treble / high', ops: () => feature(FEAT.TREBLE) },
+      { id: 'transient', name: 'Transient', ops: () => feature(FEAT.TRANSIENT) },
+      { id: 'bassTransient', name: 'Bass transient', ops: () => feature(FEAT.BASS_TRANSIENT) },
+      { id: 'trebleTransient', name: 'Treble transient', ops: () => feature(FEAT.TREBLE_TRANSIENT) },
+      { id: 'zeroCross', name: 'Zero crossing', ops: () => feature(FEAT.ZERO_CROSSING) },
+      { id: 'chaos', name: 'Audio chaos', ops: () => feature(FEAT.AUDIO_CHAOS) },
+      { id: 'lowBand', name: 'Low band', ops: () => band(12) },
+      { id: 'midBand', name: 'Mid band', ops: () => band(48) },
+      { id: 'highBand', name: 'High band', ops: () => band(96) },
+    ];
+
+    const toneSources = [
+      { id: 'colorBase', name: 'Audio color', ops: () => feature(FEAT.COLOR_BASE) },
+      { id: 'source', name: 'Trigger source', ops: sourceId => sourceOps(sourceId) },
+      { id: 'xPhase', name: 'X + motion', ops: () => [OP.PUSH_XN, ...stateLoad(0), OP.ADD, OP.WRAP01] },
+      { id: 'yHeight', name: 'Y height', ops: () => [OP.PUSH_YN] },
+      { id: 'xyField', name: 'XY field', ops: () => [OP.PUSH_XN, OP.PUSH_YN, OP.ADD, ...stateLoad(0), OP.ADD, OP.WRAP01] },
+      { id: 'tilt', name: 'Low/high tilt', ops: () => feature(FEAT.SPECTRAL_TILT) },
+      { id: 'random', name: 'Random', ops: () => [OP.PUSH_RANDOM] },
+    ];
+
+    const spawnMaps = [
+      { id: 'analyzer', name: 'Stereo + low/high' },
+      { id: 'center', name: 'Center impact' },
+      { id: 'random', name: 'Random impact' },
+      { id: 'flow', name: 'Audio flow' },
+    ];
+
     const presets = [
       {
-        id: 'loudBars',
-        name: 'Loudness bars',
-        build: buildLoudnessBars,
-      },
-      {
-        id: 'kickPulse',
-        name: 'Kick pulse field',
-        build: buildKickPulse,
-      },
-      {
-        id: 'trebleSparks',
-        name: 'Treble sparkle mask',
-        build: buildTrebleSparks,
-      },
-      {
-        id: 'flowWave',
-        name: 'Mid wave ribbon',
-        build: buildFlowWave,
-      },
-      {
-        id: 'zeroAurora',
-        name: 'Zero-cross aurora',
-        build: buildZeroAurora,
+        id: 'impactRipple',
+        name: 'Impact ripple bloom',
+        defaults: { source: 'kick', tone: 'colorBase', gate: 92, motion: 8, intensity: 250, ringWidth: 38, spawnMap: 'analyzer', trailFade: 226, trail: true },
+        build: buildImpactRipple,
       },
       {
         id: 'custom',
         name: 'Custom hex',
+        defaults: { source: 'kick', tone: 'colorBase', gate: 92, motion: 8, intensity: 250, ringWidth: 38, spawnMap: 'analyzer', trailFade: 226, trail: true },
         build: buildCustomProgram,
       },
     ];
@@ -833,146 +898,225 @@
       return target;
     }
 
-    function approxCenterDistanceOps() {
+    function sourceOps(id) {
+      const source = audioSources.find(item => item.id === id) || audioSources[0];
+      return source.ops().slice();
+    }
+
+    function toneOps(id, sourceId) {
+      const tone = toneSources.find(item => item.id === id) || toneSources[0];
+      return tone.ops(sourceId).slice();
+    }
+
+    function gatedLevelOps(sourceId, gateByte) {
+      const threshold = clampByte(gateByte) / 255;
+      const range = Math.max(0.045, 1 - threshold);
       return [
-        OP.PUSH_XN, ...u8(0.5), OP.SUB, OP.ABS,
-        OP.PUSH_YN, ...u8(0.5), OP.SUB, OP.ABS,
-        OP.MAX,
+        ...sourceOps(sourceId),
+        ...u8(threshold),
+        OP.SUB,
+        ...u8(range),
+        OP.DIV,
+        OP.CLAMP01,
+        OP.SMOOTHSTEP,
       ];
     }
 
-    function buildFrameAdvance(speedByte) {
+    function gateEdgeConditionOps(sourceId, gateByte) {
+      const threshold = clampByte(gateByte) / 255;
       return [
-        ...stateLoad(0),
-        ...u8Raw(speedByte),
+        ...sourceOps(sourceId),
+        OP.DUP,
+        ...u8(threshold),
+        OP.GREATER,
+        ...stateLoad(1),
+        ...u8(threshold),
+        OP.LESS,
+        OP.MUL,
+        OP.SWAP,
+        ...stateStore(1),
+      ];
+    }
+
+    function layerFlags(options) {
+      return options.trail ? LAYER_FLAG_TRAIL : 0;
+    }
+
+    function spawnXOps(id) {
+      if (id === 'center') return u8(0.5);
+      if (id === 'random') return [OP.PUSH_RANDOM];
+      if (id === 'flow') {
+        return [
+          ...feature(FEAT.AUDIO_FLOW_X),
+          ...u8(0.45),
+          OP.MUL,
+          ...u8(0.5),
+          OP.ADD,
+          OP.CLAMP01,
+        ];
+      }
+      return [
+        ...feature(FEAT.STEREO_BALANCE),
+        ...u8(0.42),
+        OP.MUL,
+        ...u8(0.5),
         OP.ADD,
-        OP.WRAP01,
-        ...stateStore(0),
-        OP.END,
+        ...feature(FEAT.AUDIO_FLOW_X),
+        ...u8(0.10),
+        OP.MUL,
+        OP.ADD,
+        OP.CLAMP01,
       ];
     }
 
-    function buildLoudnessBars(options) {
-      const motion = options.motion;
-      const intensity = options.intensity / 255;
-      const frame = buildFrameAdvance(motion);
-      const pixel = [];
-      pushAll(
-        pixel,
-        [OP.PUSH_XN],
-        stateLoad(0),
-        [OP.ADD, OP.WRAP01],
-        feature(FEAT.LOUDNESS),
-        [OP.PUSH_YN, OP.GREATER],
-        feature(FEAT.LOUDNESS),
-        u8(intensity),
-        [OP.MUL, OP.MUL, OP.EMIT_PALETTE, OP.END]
-      );
-      return { frame, pixel };
+    function spawnYOps(id) {
+      if (id === 'center') return u8(0.5);
+      if (id === 'random') return [OP.PUSH_RANDOM, ...u8(0.37), OP.ADD, OP.WRAP01];
+      if (id === 'flow') {
+        return [
+          ...feature(FEAT.AUDIO_FLOW_Y),
+          ...u8(0.35),
+          OP.MUL,
+          ...u8(0.5),
+          OP.ADD,
+          OP.CLAMP01,
+        ];
+      }
+      return [
+        ...feature(FEAT.SPECTRAL_TILT),
+        ...u8(0.72),
+        OP.MUL,
+        ...u8(0.14),
+        OP.ADD,
+        OP.CLAMP01,
+      ];
     }
 
-    function buildKickPulse(options) {
-      const motion = options.motion;
-      const intensity = options.intensity / 255;
-      const frame = buildFrameAdvance(motion);
-      const pixel = [];
-      pushAll(
-        pixel,
-        feature(FEAT.COLOR_BASE),
-        stateLoad(0),
-        [OP.ADD, OP.WRAP01],
-        feature(FEAT.KICK),
-        feature(FEAT.BASS_TRANSIENT),
-        [OP.MAX],
-        approxCenterDistanceOps(),
-        [OP.SUB, OP.CLAMP01],
-        u8(intensity),
-        [OP.MUL, OP.EMIT_PALETTE, OP.END]
-      );
-      return { frame, pixel };
+    function roundDistanceOps() {
+      return [
+        OP.PUSH_XN,
+        ...stateLoad(3),
+        OP.SUB,
+        OP.DUP,
+        OP.ADD,
+        OP.PUSH_YN,
+        ...stateLoad(4),
+        OP.SUB,
+        OP.HYPOT,
+      ];
     }
 
-    function buildTrebleSparks(options) {
-      const motion = options.motion;
-      const intensity = options.intensity / 255;
-      const frame = buildFrameAdvance(motion);
-      const pixel = [];
-      pushAll(
-        pixel,
-        [OP.PUSH_RANDOM],
-        stateLoad(0),
-        [OP.ADD, OP.WRAP01],
-        feature(FEAT.TREBLE),
-        [OP.PUSH_RANDOM, OP.GREATER],
-        feature(FEAT.TREBLE),
-        feature(FEAT.TREBLE_TRANSIENT),
-        [OP.MAX],
-        u8(intensity),
-        [OP.MUL, OP.MUL, OP.EMIT_PALETTE, OP.END]
-      );
-      return { frame, pixel };
+    function ringMaskOps(width) {
+      return [
+        ...roundDistanceOps(),
+        ...stateLoad(0),
+        OP.SUB,
+        OP.ABS,
+        ...u8(width),
+        OP.DIV,
+        ...u8(1),
+        OP.SWAP,
+        OP.SUB,
+        OP.CLAMP01,
+        OP.SMOOTHSTEP,
+      ];
     }
 
-    function buildFlowWave(options) {
-      const motion = options.motion;
-      const intensity = options.intensity / 255;
-      const frame = buildFrameAdvance(motion);
-      const pixel = [];
+    function buildImpactRippleFrame(options) {
+      const speed = clamp(0.008 + (options.motion / 255) * 0.095, 0.004, 0.12);
+      const frame = [];
       pushAll(
-        pixel,
-        [OP.PUSH_XN],
+        frame,
+        gateEdgeConditionOps(options.source, options.gate),
+        [OP.DUP],
+        stateStore(6),
+        u8(0),
         stateLoad(0),
-        [OP.ADD, OP.WRAP01],
-        [OP.PUSH_XN],
-        stateLoad(0),
-        [OP.ADD, OP.SIN01],
-        [OP.PUSH_YN, OP.SUB, OP.ABS],
-        u8(0.09),
-        [OP.LESS],
-        feature(FEAT.MID),
-        feature(FEAT.TREBLE),
-        [OP.MAX],
-        u8(intensity),
-        [OP.MUL, OP.MUL, OP.EMIT_PALETTE, OP.END]
+        u8(speed),
+        [OP.ADD],
+        [OP.SELECT],
+        stateStore(0),
+        stateLoad(6),
+        gatedLevelOps(options.source, options.gate),
+        stateLoad(2),
+        u8(0.92),
+        [OP.MUL, OP.SELECT],
+        stateStore(2),
+        stateLoad(6),
+        spawnXOps(options.spawnMap),
+        stateLoad(3),
+        [OP.SELECT],
+        stateStore(3),
+        stateLoad(6),
+        spawnYOps(options.spawnMap),
+        stateLoad(4),
+        [OP.SELECT],
+        stateStore(4),
+        stateLoad(6),
+        toneOps(options.tone, options.source),
+        stateLoad(5),
+        [OP.SELECT],
+        stateStore(5),
+        u8Raw(options.trailFade),
+        stateStore(TRAIL_FADE_SLOT),
+        [OP.END]
       );
-      return { frame, pixel };
+      return frame;
     }
 
-    function buildZeroAurora(options) {
-      const motion = options.motion;
+    function buildImpactRipple(options) {
       const intensity = options.intensity / 255;
-      const frame = buildFrameAdvance(motion);
+      const ringWidth = clamp(options.ringWidth / 512, 0.035, 0.17);
+      const frame = buildImpactRippleFrame(options);
       const pixel = [];
       pushAll(
         pixel,
+        stateLoad(5),
         [OP.PUSH_XN, OP.PUSH_YN, OP.ADD],
-        stateLoad(0),
-        [OP.ADD, OP.WRAP01],
-        feature(FEAT.ZERO_CROSSING),
-        feature(FEAT.AUDIO_CHAOS),
-        [OP.MAX],
-        [OP.PUSH_YN],
-        u8(0.25),
-        [OP.ADD, OP.CLAMP01],
+        u8(0.08),
+        [OP.MUL, OP.ADD],
+        [OP.PUSH_RANDOM],
+        u8(0.10),
+        [OP.MUL, OP.ADD, OP.WRAP01],
+        ringMaskOps(ringWidth),
+        stateLoad(2),
+        [OP.MUL],
         u8(intensity),
-        [OP.MUL, OP.MUL, OP.EMIT_PALETTE, OP.END]
+        [OP.MUL],
+        [OP.PUSH_RANDOM],
+        u8(0.30),
+        [OP.MUL],
+        u8(0.78),
+        [OP.ADD, OP.MUL, OP.EMIT_PALETTE, OP.END]
       );
-      return { frame, pixel };
+      return { frame, pixel, flags: layerFlags(options) };
     }
 
-    function buildCustomProgram() {
+    function buildCustomProgram(options) {
       return {
         frame: parseHexBytes(el.frameHex.value),
         pixel: parseHexBytes(el.pixelHex.value),
+        flags: layerFlags(options),
+      };
+    }
+
+    function readLayerOptions() {
+      return {
+        motion: readInt(el.motion, 22, 0, 255),
+        intensity: readInt(el.intensity, 210, 0, 255),
+        source: el.audioSource.value || 'kick',
+        tone: el.toneSource.value || 'colorBase',
+        gate: readInt(el.gate, 92, 0, 245),
+        ringWidth: readInt(el.ringWidth, 38, 1, 255),
+        spawnMap: el.spawnMap.value || 'analyzer',
+        trailFade: readInt(el.trailFade, 218, 1, 255),
+        trail: el.trailLayer.checked,
       };
     }
 
     function currentProgram() {
       const preset = presets.find(item => item.id === el.preset.value) || presets[0];
-      return preset.build({
-        motion: readInt(el.motion, 22, 0, 255),
-        intensity: readInt(el.intensity, 210, 0, 255),
-      });
+      return preset.build(readLayerOptions());
     }
 
     function byteHex(byte) {
@@ -1044,7 +1188,7 @@
       if (pixel.length === 0) throw new Error('Pixel program is empty.');
       if (frame.length + pixel.length > 768) throw new Error('Layer program exceeds 768 bytes.');
       return [
-        0,
+        program.flags & 255,
         (frame.length >> 8) & 255,
         frame.length & 255,
         (pixel.length >> 8) & 255,
@@ -1077,36 +1221,71 @@
       ];
     }
 
-    function addPacket(kind, name, payload = []) {
+    function packetRecord(kind, name, payload = []) {
       const bytes = makePacket(kind, payload);
-      state.packets.push({ kind, name, payloadLength: payload.length, bytes });
-      updatePacketUi();
-      setStatus(`${name} queued.`, 'ok');
+      return { kind, name, payloadLength: payload.length, bytes };
+    }
+
+    function layerPacketRecord() {
+      const program = currentProgram();
+      const preset = presets.find(item => item.id === el.preset.value);
+      const source = audioSources.find(item => item.id === el.audioSource.value);
+      const trail = (program.flags & LAYER_FLAG_TRAIL) !== 0 ? ', trail' : '';
+      return packetRecord(KIND_LAYER, `Layer: ${preset ? preset.name : 'Custom'} / ${source ? source.name : 'source'}${trail}`, layerPayload(program));
+    }
+
+    function palettePacketRecord() {
+      return packetRecord(KIND_PALETTE, 'Palette', palettePayload());
+    }
+
+    function clearPacketRecord() {
+      return packetRecord(KIND_CLEAR, 'Clear VU RAM', []);
+    }
+
+    function setCurrentStream(mode = state.streamMode, silent = false) {
+      try {
+        state.streamMode = mode;
+        if (mode === 'layer') {
+          state.packets = [layerPacketRecord()];
+        } else if (mode === 'palette') {
+          state.packets = [palettePacketRecord()];
+        } else if (mode === 'clear') {
+          state.packets = [clearPacketRecord()];
+        } else if (mode === 'empty') {
+          state.packets = [];
+        } else {
+          state.streamMode = 'layerPalette';
+          state.packets = [layerPacketRecord(), palettePacketRecord()];
+        }
+        updatePacketUi();
+        if (!silent) {
+          setStatus(state.packets.length ? 'Current stream rebuilt.' : 'Current stream emptied.', 'ok');
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || String(error), 'bad');
+      }
     }
 
     function addLayerPacket() {
-      const program = currentProgram();
-      const preset = presets.find(item => item.id === el.preset.value);
-      addPacket(KIND_LAYER, `Layer: ${preset ? preset.name : 'Custom'}`, layerPayload(program));
+      setCurrentStream('layer');
     }
 
     function addPalettePacket() {
-      addPacket(KIND_PALETTE, 'Palette', palettePayload());
+      setCurrentStream('palette');
     }
 
     function addLayerAndPalette() {
-      addLayerPacket();
-      addPalettePacket();
+      setCurrentStream('layerPalette');
     }
 
     function addClearPacket() {
-      addPacket(KIND_CLEAR, 'Clear VU RAM', []);
+      setCurrentStream('clear');
     }
 
-    function removePacket(index) {
-      state.packets.splice(index, 1);
-      updatePacketUi();
-      setStatus('Packet removed.');
+    function refreshCurrentStream() {
+      loadCurrentPresetHex();
+      setCurrentStream(state.streamMode, true);
     }
 
     function renderPacketList() {
@@ -1128,12 +1307,6 @@
             <div class="packetMeta">kind ${packet.kind}, ${packet.payloadLength} payload bytes, ${packet.bytes.length} total bytes</div>
           </div>
         `;
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'small';
-        button.textContent = 'Remove';
-        button.addEventListener('click', () => removePacket(index));
-        item.appendChild(button);
         el.packetList.appendChild(item);
       });
     }
@@ -1149,7 +1322,7 @@
       el.duration.textContent = formatSeconds(estimatedDuration(signalBits));
       el.bytePreview.textContent = state.packets.length
         ? state.packets.map((packet, index) => `#${index + 1} ${packet.name}\n${bytesToHex(packet.bytes)}`).join('\n\n')
-        : 'No packets queued.';
+        : 'No packets in current stream.';
       drawWave(new Float32Array(0), 44100);
       void totalBytes;
     }
@@ -1205,7 +1378,7 @@
     }
 
     function buildSignalHalfLevels() {
-      if (state.packets.length === 0) throw new Error('No packets queued.');
+      if (state.packets.length === 0) throw new Error('No packets in current stream.');
       const preambleCount = readInt(el.preambleCount, 16, 3, 10000);
       const guardBits = readInt(el.guardBits, 12, 2, 1000);
       const convention = el.convention.value;
@@ -1470,10 +1643,7 @@
     function loadCurrentPresetHex() {
       const selected = presets.find(item => item.id === el.preset.value);
       if (!selected || selected.id === 'custom') return;
-      const program = selected.build({
-        motion: readInt(el.motion, 22, 0, 255),
-        intensity: readInt(el.intensity, 210, 0, 255),
-      });
+      const program = selected.build(readLayerOptions());
       el.frameHex.value = bytesToHex(program.frame);
       el.pixelHex.value = bytesToHex(program.pixel);
     }
@@ -1588,6 +1758,24 @@
           }
           continue;
         }
+        if (op === OP.DUP) {
+          if (stack.length > 0) push(stack[stack.length - 1]);
+          continue;
+        }
+        if (op === OP.DROP) {
+          pop();
+          continue;
+        }
+        if (op === OP.SWAP) {
+          if (stack.length >= 2) {
+            const a = stack.length - 1;
+            const b = stack.length - 2;
+            const tmp = stack[a];
+            stack[a] = stack[b];
+            stack[b] = tmp;
+          }
+          continue;
+        }
 
         const b = () => pop();
         const a = () => pop();
@@ -1607,8 +1795,31 @@
         else if (op === OP.GREATER) { const rb = b(); push(a() > rb ? 1 : 0); }
         else if (op === OP.SELECT) { const falseValue = b(); const trueValue = b(); push(a() >= 0.5 ? trueValue : falseValue); }
         else if (op === OP.SMOOTHSTEP) { const v = clamp01(a()); push(v * v * (3 - 2 * v)); }
+        else if (op === OP.HYPOT) { const rb = b(); const ra = a(); push(Math.hypot(ra, rb)); }
       }
       return out;
+    }
+
+    function clearPreviewTrail() {
+      for (const pixel of state.previewTrail) {
+        pixel.r = 0;
+        pixel.g = 0;
+        pixel.b = 0;
+      }
+    }
+
+    function fadePreviewTrail() {
+      const slots = state.previewState[0];
+      let fade = slots[TRAIL_FADE_SLOT] || 0.82;
+      if (fade <= 0.01 || fade > 1) fade = 0.82;
+      for (const pixel of state.previewTrail) {
+        pixel.r *= fade;
+        pixel.g *= fade;
+        pixel.b *= fade;
+        if (pixel.r < 0.004) pixel.r = 0;
+        if (pixel.g < 0.004) pixel.g = 0;
+        if (pixel.b < 0.004) pixel.b = 0;
+      }
     }
 
     function drawMatrixPreview() {
@@ -1621,15 +1832,26 @@
       const program = currentProgram();
       const frame = program.frame || [];
       const pixel = program.pixel || [];
+      const useTrail = (program.flags & LAYER_FLAG_TRAIL) !== 0;
 
       runVm(frame, 0, audio, 0, 0, time * 1000, { r: 0, g: 0, b: 0 });
+      if (useTrail) fadePreviewTrail();
+      else clearPreviewTrail();
 
       ctx.fillStyle = '#0d0f11';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       for (let y = 0; y < LED_H; y++) {
         for (let x = 0; x < LED_W; x++) {
           const color = runVm(pixel, 0, audio, x, y, time * 1000, { r: 0, g: 0, b: 0 });
-          ctx.fillStyle = `rgb(${clampByte(color.r * 255)}, ${clampByte(color.g * 255)}, ${clampByte(color.b * 255)})`;
+          let drawColor = color;
+          if (useTrail) {
+            const trailPixel = state.previewTrail[y * LED_W + x];
+            trailPixel.r = clamp01(trailPixel.r + color.r);
+            trailPixel.g = clamp01(trailPixel.g + color.g);
+            trailPixel.b = clamp01(trailPixel.b + color.b);
+            drawColor = trailPixel;
+          }
+          ctx.fillStyle = `rgb(${clampByte(drawColor.r * 255)}, ${clampByte(drawColor.g * 255)}, ${clampByte(drawColor.b * 255)})`;
           ctx.fillRect(x * cellW + 1, (LED_H - 1 - y) * cellH + 1, Math.max(1, cellW - 2), Math.max(1, cellH - 2));
         }
       }
@@ -1639,6 +1861,33 @@
     function populateSelects() {
       el.preset.innerHTML = presets.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
       el.palettePreset.innerHTML = palettePresets.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+      el.audioSource.innerHTML = audioSources.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+      el.toneSource.innerHTML = toneSources.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+      el.spawnMap.innerHTML = spawnMaps.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+    }
+
+    function resetPreviewMemory() {
+      for (const slots of state.previewState) {
+        slots.fill(0);
+      }
+      clearPreviewTrail();
+      state.previewStartedAt = performance.now();
+    }
+
+    function applyPresetDefaults(id) {
+      const preset = presets.find(item => item.id === id) || presets[0];
+      const defaults = preset.defaults || {};
+      el.motion.value = String(defaults.motion ?? 22);
+      el.intensity.value = String(defaults.intensity ?? 210);
+      el.audioSource.value = defaults.source || 'loudness';
+      el.toneSource.value = defaults.tone || 'colorBase';
+      el.gate.value = String(defaults.gate ?? 80);
+      el.ringWidth.value = String(defaults.ringWidth ?? 38);
+      el.spawnMap.value = defaults.spawnMap || 'analyzer';
+      el.trailFade.value = String(defaults.trailFade ?? 218);
+      el.trailLayer.checked = Boolean(defaults.trail);
+      resetPreviewMemory();
+      refreshCurrentStream();
     }
 
     function bindEvents() {
@@ -1647,9 +1896,7 @@
       el.addPaletteBtn.addEventListener('click', addPalettePacket);
       el.addClearBtn.addEventListener('click', addClearPacket);
       el.clearQueueBtn.addEventListener('click', () => {
-        state.packets = [];
-        updatePacketUi();
-        setStatus('Queue cleared.');
+        setCurrentStream('empty');
       });
       el.addStopBtn.addEventListener('click', () => {
         if (state.paletteStops.length >= 16) return;
@@ -1660,14 +1907,28 @@
         state.paletteStops = sortedStops();
         renderPaletteStops();
       });
-      el.palettePreset.addEventListener('change', () => loadPalettePreset(el.palettePreset.value));
-      el.paletteInterpolation.addEventListener('change', drawPalettePreview);
-      el.preset.addEventListener('change', loadCurrentPresetHex);
-      el.motion.addEventListener('input', loadCurrentPresetHex);
-      el.intensity.addEventListener('input', loadCurrentPresetHex);
-      el.loadPresetHexBtn.addEventListener('click', loadCurrentPresetHex);
+      el.palettePreset.addEventListener('change', () => {
+        loadPalettePreset(el.palettePreset.value);
+        setCurrentStream(state.streamMode, true);
+      });
+      el.paletteInterpolation.addEventListener('change', () => {
+        drawPalettePreview();
+        setCurrentStream(state.streamMode, true);
+      });
+      el.preset.addEventListener('change', () => applyPresetDefaults(el.preset.value));
+      for (const input of [el.motion, el.intensity, el.gate, el.ringWidth, el.trailFade]) {
+        input.addEventListener('input', refreshCurrentStream);
+      }
+      for (const input of [el.audioSource, el.toneSource, el.spawnMap, el.trailLayer]) {
+        input.addEventListener('change', () => {
+          resetPreviewMemory();
+          refreshCurrentStream();
+        });
+      }
+      el.loadPresetHexBtn.addEventListener('click', refreshCurrentStream);
       el.useCustomHexBtn.addEventListener('click', () => {
         el.preset.value = 'custom';
+        setCurrentStream(state.streamMode, true);
         setStatus('Custom bytecode active.');
       });
       el.generateBtn.addEventListener('click', generateAudio);
@@ -1681,11 +1942,8 @@
     function init() {
       populateSelects();
       loadPalettePreset('standard');
-      loadCurrentPresetHex();
+      applyPresetDefaults(presets[0].id);
       bindEvents();
-      addClearPacket();
-      addLayerAndPalette();
-      updatePacketUi();
       drawMatrixPreview();
     }
 

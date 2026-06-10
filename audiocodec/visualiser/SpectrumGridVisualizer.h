@@ -3,7 +3,7 @@
 #include "AudioVisualizer.h"
 #include <math.h>
 
-static constexpr bool LED_SPECTRUM_REVERSE_X = true; // Flip this if low frequencies appear on the wrong side.
+static constexpr bool LED_SPECTRUM_REVERSE_X = false; // Flip this if low frequencies appear on the wrong side.
 static constexpr float LED_SPECTRUM_DB_FLOOR = -78.0f;
 static constexpr float LED_SPECTRUM_DB_CEILING = -3.0f;
 static constexpr float LED_SPECTRUM_SILENCE_DB = -96.0f;
@@ -46,7 +46,7 @@ public:
       for (uint16_t y = 0; y < barHeight; y++) {
         float yAmount = (float)(y + 1) / (float)LED_DRIVER_GRID_HEIGHT;
         float glow = 0.42f + yAmount * 0.58f;
-        canvas.setPixel(ledIndexXY(x, y), r * glow, g * glow, b * glow);
+        canvas.setPixel(visualizerLedIndexXY(x, y), r * glow, g * glow, b * glow);
       }
     }
   }

@@ -673,6 +673,12 @@
                 Save source audio
               </label>
               <label>
+                Audio offset ms
+                <input id="audioSyncOffset" type="number" min="-5000" max="5000" step="1" value="0" title="Negative starts audio earlier; positive starts audio later." />
+              </label>
+            </div>
+            <div class="row">
+              <label>
                 Channel layout
                 <select id="channelLayout">
                   <option value="data-left" selected>Data left / audio right</option>
@@ -770,6 +776,7 @@
       resyncGuardBits: document.getElementById('resyncGuardBits'),
       smoothEdges: document.getElementById('smoothEdges'),
       includeSourceAudio: document.getElementById('includeSourceAudio'),
+      audioSyncOffset: document.getElementById('audioSyncOffset'),
       channelLayout: document.getElementById('channelLayout'),
       generateBtn: document.getElementById('generateBtn'),
       playBtn: document.getElementById('playBtn'),
@@ -1565,6 +1572,11 @@
       };
     }
 
+    function readAudioSyncOffsetSec() {
+      const offsetMs = parseFloat(el.audioSyncOffset.value);
+      return Number.isFinite(offsetMs) ? clamp(offsetMs, -5000, 5000) / 1000 : 0;
+    }
+
     function signalOverheadBitCount(timing = readSignalTimingInputs()) {
       return timing.preambleCount * 8 + (timing.includeSync ? 8 : 0);
     }
@@ -1590,6 +1602,64 @@
         ? 8 + Math.min(plannedPaletteCount(), 255) * 32
         : 0;
       return { first: indexedBits, next: indexedBits + adaptiveUpdateBits };
+    }
+
+    function estimatedFrameEndSignalBitsForFrameCount(frameCount, settings) {
+      const frames = Math.max(1, Math.floor(frameCount));
+      const timing = readSignalTimingInputs();
+      const resync = readResyncSettings();
+      const chunkSize = resync.everyFrames > 0 ? Math.max(1, resync.everyFrames) : frames;
+      const fixedBits = fixedProtocolBitCountForPlan();
+      const signalOverheadBits = signalOverheadBitCount(timing);
+      const shape = frameBitShapeForPlan(settings);
+      const ends = [];
+      let bitCursor = 0;
+
+      for (let start = 0; start < frames; start += chunkSize) {
+        if (start > 0) {
+          bitCursor += resync.guardBits;
+        }
+
+        bitCursor += signalOverheadBits + fixedBits;
+
+        const end = Math.min(frames, start + chunkSize);
+        for (let frameIndex = start; frameIndex < end; frameIndex++) {
+          bitCursor += frameIndex === start ? shape.first : shape.next;
+          ends.push(bitCursor);
+        }
+      }
+
+      return ends;
+    }
+
+    function frameDisplayTimeFromBitEnd(bitEnd, timing = readSignalTimingInputs()) {
+      return timing.startSilenceSec + Math.max(0, bitEnd - 0.5) / timing.bitRate;
+    }
+
+    function estimatedFrameDisplayTimesForFrameCount(frameCount, settings) {
+      const timing = readSignalTimingInputs();
+      return estimatedFrameEndSignalBitsForFrameCount(frameCount, settings)
+        .map(bitEnd => frameDisplayTimeFromBitEnd(bitEnd, timing));
+    }
+
+    function estimatedDisplaySpanForFrameCount(frameCount, settings) {
+      const times = estimatedFrameDisplayTimesForFrameCount(frameCount, settings);
+      return times.length > 1 ? times[times.length - 1] - times[0] : 0;
+    }
+
+    function estimatedDisplayEndForFrameCount(frameCount, settings) {
+      const times = estimatedFrameDisplayTimesForFrameCount(frameCount, settings);
+      return times.length > 0 ? times[times.length - 1] : 0;
+    }
+
+    function syncedSampleTimesForFrameCount(frameCount, settings, duration) {
+      const times = estimatedFrameDisplayTimesForFrameCount(frameCount, settings);
+      const maxTime = Math.max(0, duration - 0.001);
+      if (times.length === 0) {
+        return Array.from({ length: frameCount }, () => 0);
+      }
+
+      return times.map(time => clamp(time, 0, maxTime));
     }
 
     function estimatedSignalBitsForFrameCount(frameCount, settings, averageFrameBits = null) {
@@ -1626,8 +1696,6 @@
       if (!Number.isFinite(duration) || duration <= 0) return null;
 
       const timing = readSignalTimingInputs();
-      const signalSeconds = Math.max(0, duration - timing.startSilenceSec - timing.endSilenceSec);
-      const signalBudgetBits = Math.max(1, Math.floor(signalSeconds * timing.bitRate));
       const frameLimit = Number.isFinite(settings.maxFrames) ? settings.maxFrames : MAX_AUTO_SYNC_FRAMES;
       const hardLimit = Math.max(1, Math.min(frameLimit, MAX_AUTO_SYNC_FRAMES));
       let low = 1;
@@ -1635,7 +1703,7 @@
 
       while (low < high) {
         const mid = Math.ceil((low + high + 1) / 2);
-        if (estimatedSignalBitsForFrameCount(mid, settings, averageFrameBits) <= signalBudgetBits) {
+        if (estimatedDisplayEndForFrameCount(mid, settings) <= duration) {
           low = mid;
         } else {
           high = mid - 1;
@@ -1644,13 +1712,20 @@
 
       const frameCount = low;
       const capped = hardLimit < MAX_AUTO_SYNC_FRAMES
-        && estimatedSignalBitsForFrameCount(hardLimit + 1, settings, averageFrameBits) <= signalBudgetBits;
+        && estimatedDisplayEndForFrameCount(hardLimit + 1, settings) <= duration;
+      const displayTimes = estimatedFrameDisplayTimesForFrameCount(frameCount, settings);
+      const firstFrameDelay = displayTimes.length > 0 ? displayTimes[0] : 0;
+      const displayEnd = displayTimes.length > 0 ? displayTimes[displayTimes.length - 1] : 0;
+      const displaySpan = Math.max(0, displayEnd - firstFrameDelay);
 
       return {
         frameCount,
         fps: frameCount / duration,
         targetDuration: duration,
         estimatedDuration: estimatedSignalDurationForFrameCount(frameCount, settings, averageFrameBits),
+        firstFrameDelay,
+        displayEnd,
+        displaySpan,
         bitRate: timing.bitRate,
         capped,
       };
@@ -1681,7 +1756,7 @@
 
       if (plan) {
         const capText = plan.capped ? ', capped' : '';
-        parts.push(`auto ${plan.frameCount} frames at ${formatFps(plan.fps)} FPS from ${formatDataRate(plan.bitRate)} data${capText}`);
+        parts.push(`auto ${plan.frameCount} frames, display ${formatSeconds(plan.firstFrameDelay)}-${formatSeconds(plan.displayEnd)} from ${formatDataRate(plan.bitRate)} data${capText}`);
       }
 
       return parts.join(' - ');
@@ -1919,7 +1994,7 @@
           if (plan) {
             updateMediaProgress(
               0.02,
-              `Auto sync: ${plan.frameCount} frames at ${formatFps(plan.fps)} FPS for ${formatSeconds(duration)}.`
+              `Auto sync: ${plan.frameCount} frames, display ${formatSeconds(plan.firstFrameDelay)}-${formatSeconds(plan.displayEnd)} for ${formatSeconds(duration)} source.`
             );
           }
         }
@@ -1930,9 +2005,14 @@
         const wanted = Math.max(1, Number.isFinite(settings.maxFrames)
           ? Math.min(settings.maxFrames, sampledFrameCount)
           : sampledFrameCount);
+        const syncedSampleTimes = settings.autoSynced && duration > 0
+          ? syncedSampleTimesForFrameCount(wanted, settings, duration)
+          : null;
 
         for (let i = 0; i < wanted; i++) {
-          const time = duration > 0 ? Math.min(Math.max(0, duration - 0.001), i / settings.fps) : 0;
+          const time = duration > 0
+            ? (syncedSampleTimes ? syncedSampleTimes[i] : Math.min(Math.max(0, duration - 0.001), i / settings.fps))
+            : 0;
           await seekVideo(video, time);
           frames.push(captureSourcePixels(video, settings));
           updateMediaProgress((i + 1) / wanted * 0.62, `Sampling video frame ${i + 1} / ${wanted}`);
@@ -2058,10 +2138,10 @@
       }
     }
 
-    function sourceAudioSampleAt(track, sampleIndex, outputSampleRate) {
+    function sourceAudioSampleAt(track, sampleIndex, outputSampleRate, offsetSec = 0) {
       if (!track || !track.samples || track.samples.length === 0) return 0;
 
-      const sourcePosition = sampleIndex * track.sampleRate / outputSampleRate;
+      const sourcePosition = (sampleIndex / outputSampleRate - offsetSec) * track.sampleRate;
       const leftIndex = Math.floor(sourcePosition);
       if (leftIndex < 0 || leftIndex >= track.samples.length) return 0;
 
@@ -2417,7 +2497,7 @@
           ? 'RGB'
           : `${paletteCount()} colors, ${settings.paletteStrategy === 'adaptive' ? 'per-frame palettes' : 'global palette'}`;
         const syncText = settings.sourceDuration > 0 && generated && currentMeta
-          ? ` Signal ${formatSeconds(currentMeta.signalDuration)} / source ${formatSeconds(settings.sourceDuration)}.`
+          ? ` Display ${formatSeconds(currentMeta.frameDisplayStartSec)}-${formatSeconds(currentMeta.frameDisplayEndSec)} / source ${formatSeconds(settings.sourceDuration)}; audio offset ${(currentMeta.audioSyncOffsetSec * 1000).toFixed(0)} ms.`
           : '';
         const audioText = fileIsVideo
           ? (currentSourceAudio ? ` Source audio mixed to mono (${currentSourceAudio.channelCount}ch).` : ' No source audio decoded.')
@@ -2543,19 +2623,26 @@
       }
     }
 
-    function buildLegacyProtocolBits() {
+    function buildLegacyProtocolChunk() {
       normalizeFrames();
 
       const bits = [];
+      const frameBitEnds = [];
       pushProtocolHeaderBits(bits);
 
       if (state.bpp === 0) {
-        for (const frame of state.frames) {
+        state.frames.forEach((frame, frameIndex) => {
           for (const color of frame.colors) {
             pushColorBits(bits, color);
           }
-        }
-        return bits;
+          frameBitEnds.push({ frameIndex, bitEnd: bits.length });
+        });
+        return {
+          startFrame: 0,
+          endFrame: state.frames.length,
+          bits,
+          frameBitEnds,
+        };
       }
 
       const count = paletteCount();
@@ -2566,23 +2653,29 @@
         pushColorBits(bits, color);
       }
 
-      for (const frame of state.frames) {
+      state.frames.forEach((frame, frameIndex) => {
         pushFramePaletteUpdates(bits, frame, workingPalette, count);
         pushIndexedFramePixels(bits, frame);
-      }
+        frameBitEnds.push({ frameIndex, bitEnd: bits.length });
+      });
 
-      return bits;
+      return {
+        startFrame: 0,
+        endFrame: state.frames.length,
+        bits,
+        frameBitEnds,
+      };
+    }
+
+    function buildLegacyProtocolBits() {
+      return buildLegacyProtocolChunk().bits;
     }
 
     function buildProtocolChunks(resyncEveryFrames = readResyncSettings().everyFrames) {
       normalizeFrames();
 
       if (resyncEveryFrames <= 0 || state.frames.length <= 1) {
-        return [{
-          startFrame: 0,
-          endFrame: state.frames.length,
-          bits: buildLegacyProtocolBits(),
-        }];
+        return [buildLegacyProtocolChunk()];
       }
 
       const chunkSize = Math.max(1, Math.floor(resyncEveryFrames));
@@ -2592,15 +2685,17 @@
         for (let start = 0; start < state.frames.length; start += chunkSize) {
           const end = Math.min(state.frames.length, start + chunkSize);
           const bits = [];
+          const frameBitEnds = [];
           pushProtocolHeaderBits(bits);
 
           for (let frameIndex = start; frameIndex < end; frameIndex++) {
             for (const color of state.frames[frameIndex].colors) {
               pushColorBits(bits, color);
             }
+            frameBitEnds.push({ frameIndex, bitEnd: bits.length });
           }
 
-          chunks.push({ startFrame: start, endFrame: end, bits });
+          chunks.push({ startFrame: start, endFrame: end, bits, frameBitEnds });
         }
 
         return chunks;
@@ -2615,6 +2710,7 @@
       for (let start = 0; start < state.frames.length; start += chunkSize) {
         const end = Math.min(state.frames.length, start + chunkSize);
         const firstFrame = state.frames[start];
+        const frameBitEnds = [];
 
         for (const update of (firstFrame.paletteUpdates || []).slice(0, 255)) {
           if (update.index >= 0 && update.index < count) {
@@ -2637,9 +2733,10 @@
           }
 
           pushIndexedFramePixels(bits, frame);
+          frameBitEnds.push({ frameIndex, bitEnd: bits.length });
         }
 
-        chunks.push({ startFrame: start, endFrame: end, bits });
+        chunks.push({ startFrame: start, endFrame: end, bits, frameBitEnds });
       }
 
       return chunks;
@@ -2665,6 +2762,7 @@
       const bits = [];
       const protocolBits = [];
       const signalSegments = [];
+      const frameSignalBitEnds = [];
       const guardHalfCount = chunks.length > 1 ? resync.guardBits * 2 : 0;
       let halfCursor = 0;
 
@@ -2687,6 +2785,14 @@
           pushByteBits(chunkBits, 0xD5);
         }
 
+        const payloadSignalStartBit = (halfCursor / 2) + chunkBits.length;
+        for (const marker of chunk.frameBitEnds || []) {
+          frameSignalBitEnds.push({
+            frameIndex: marker.frameIndex,
+            bitEnd: payloadSignalStartBit + marker.bitEnd,
+          });
+        }
+
         appendBits(chunkBits, chunk.bits);
         appendBits(bits, chunkBits);
         appendBits(protocolBits, chunk.bits);
@@ -2705,6 +2811,7 @@
         protocolBits,
         chunks,
         signalSegments,
+        frameSignalBitEnds,
         signalHalfCount: halfCursor,
         signalBitPeriods: halfCursor / 2,
         preambleCount,
@@ -2796,6 +2903,7 @@
       const sourceAudio = el.includeSourceAudio.checked ? currentSourceAudio : null;
       const includeSourceAudio = Boolean(sourceAudio);
       const channelLayout = el.channelLayout.value;
+      const audioSyncOffsetSec = readAudioSyncOffsetSec();
 
       if (!Number.isFinite(bitRate) || bitRate <= 0) throw new Error('Bit rate must be greater than 0.');
       if (!Number.isFinite(sampleRate) || sampleRate < 8000) throw new Error('Sample rate must be at least 8000 Hz.');
@@ -2810,8 +2918,16 @@
       const halfLevelCount = stream.signalHalfCount;
       const dataDur = halfLevelCount * halfBitDur;
       const totalDur = startSilenceSec + dataDur + endSilenceSec;
+      const frameDisplayTimes = stream.frameSignalBitEnds.map(marker => ({
+        frameIndex: marker.frameIndex,
+        time: startSilenceSec + Math.max(0, marker.bitEnd - 0.5) / bitRate,
+      }));
+      const frameDisplayStartSec = frameDisplayTimes.length > 0 ? frameDisplayTimes[0].time : 0;
+      const frameDisplayEndSec = frameDisplayTimes.length > 0 ? frameDisplayTimes[frameDisplayTimes.length - 1].time : 0;
+      const frameDisplaySpanSec = Math.max(0, frameDisplayEndSec - frameDisplayStartSec);
+      const sourceAudioStartSec = includeSourceAudio ? audioSyncOffsetSec : 0;
       const signalSamples = Math.max(1, Math.ceil(totalDur * sampleRate));
-      const sourceAudioSamples = includeSourceAudio ? Math.ceil(sourceAudio.duration * sampleRate) : 0;
+      const sourceAudioSamples = includeSourceAudio ? Math.ceil(Math.max(0, sourceAudioStartSec + sourceAudio.duration) * sampleRate) : 0;
       const totalSamples = includeSourceAudio ? Math.max(signalSamples, sourceAudioSamples) : signalSamples;
       const channelCount = includeSourceAudio ? 2 : 1;
       const dataSize = totalSamples * channelCount * 2;
@@ -2872,7 +2988,7 @@
           if (channelCount === 1) {
             writeSample(view, j, dataValue);
           } else {
-            const audioValue = sourceAudioSampleAt(sourceAudio, sampleIndex, sampleRate);
+            const audioValue = sourceAudioSampleAt(sourceAudio, sampleIndex, sampleRate, sourceAudioStartSec);
             const left = channelLayout === 'audio-left' ? audioValue : dataValue;
             const right = channelLayout === 'audio-left' ? dataValue : audioValue;
             const frameOffset = j * channelCount;
@@ -2915,8 +3031,14 @@
           wavChannels: channelCount,
           sourceAudioIncluded: includeSourceAudio,
           sourceAudioRequested: el.includeSourceAudio.checked,
+          sourceAudioStartSec,
+          audioSyncOffsetSec,
           sourceAudioDuration: includeSourceAudio ? sourceAudio.duration : 0,
           sourceAudioChannels: includeSourceAudio ? sourceAudio.channelCount : 0,
+          frameDisplayStartSec,
+          frameDisplayEndSec,
+          frameDisplaySpanSec,
+          frameDisplayCount: frameDisplayTimes.length,
           channelLayout: includeSourceAudio ? channelLayout : 'data-mono',
           brightnessLimit: brightnessLimitPercent(),
           ledColorProfile: ledColorProfileEnabled(),
@@ -2992,8 +3114,11 @@
         ? `stereo WAV, ${meta.channelLayout === 'audio-left' ? 'audio left / data right' : 'data left / audio right'}`
         : (meta.sourceAudioRequested ? 'mono data WAV, no source audio decoded' : 'mono data WAV');
       const sourceAudioLine = meta.sourceAudioIncluded
-        ? `Source audio: ${formatSeconds(meta.sourceAudioDuration)}, ${meta.sourceAudioChannels}ch mixed to mono`
+        ? `Source audio: ${formatSeconds(meta.sourceAudioDuration)}, ${meta.sourceAudioChannels}ch mixed to mono, offset ${(meta.audioSyncOffsetSec * 1000).toFixed(0)} ms`
         : 'Source audio: none';
+      const displayLine = meta.frameDisplayCount > 0
+        ? `Frame display span: ${formatSeconds(meta.frameDisplaySpanSec)} (${formatSeconds(meta.frameDisplayStartSec)} to ${formatSeconds(meta.frameDisplayEndSec)})`
+        : 'Frame display span: none';
       el.preview.textContent =
 `Protocol: ${actualWidth()}x${actualHeight()}, bpp ${state.bpp}, ${mode}
 Frames: ${state.frames.length}
@@ -3003,6 +3128,7 @@ Resync chunks: ${meta.chunkCount}
 Guard breaks: ${meta.guardBreaks}${meta.guardBreaks ? ` x ${meta.resyncGuardBits} bit periods` : ''}
 WAV: ${wavMode}
 Signal duration: ${formatSeconds(meta.signalDuration)}
+${displayLine}
 ${sourceAudioLine}
 Protocol bits: ${protocolBits.length}
 Signal data bits: ${meta.dataBits}
@@ -3248,6 +3374,7 @@ ${halfLevelPreview.map(v => v > 0 ? '+1' : '-1').join(' ')}${halfLevelCount > ha
 
     function syncAudioOptionControls() {
       el.channelLayout.disabled = !el.includeSourceAudio.checked;
+      el.audioSyncOffset.disabled = !el.includeSourceAudio.checked;
     }
 
     el.applyGridBtn.addEventListener('click', applyGrid);

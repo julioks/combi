@@ -44,7 +44,7 @@ payloads cleanly.
 ## Layer Payload
 
 ```text
-byte 0      flags, currently reserved
+byte 0      flags
 byte 1..2   frame program length
 byte 3..4   pixel program length
 bytes 5+    frame program, then pixel program
@@ -53,6 +53,14 @@ bytes 5+    frame program, then pixel program
 The runtime executes the frame program once per render and the pixel program
 once per LED. Each layer has 32 float state slots available to both programs.
 Layers append until a clear packet or until entering video mode.
+
+Layer flags:
+
+- `0x01`: persistent trail layer. The layer renders into a retained canvas
+  instead of a cleared canvas. State slot `31` controls per-frame trail fade
+  as a normalized `0..1` value; invalid or zero values fall back to `0.82`.
+  Trail layers share one retained RGB canvas to fit ESP32 DRAM, so the first
+  trail layer rendered in a frame supplies the fade value for that frame.
 
 ## Palette Payload
 
@@ -76,9 +84,10 @@ Initial implemented opcodes are defined in `vu/VuProgram.h`. They include:
 
 - constants, X/Y normalized coordinates, time, deterministic random
 - per-layer state load/store
+- stack helpers: duplicate, drop, swap
 - audio features from `AudioAnalysisFrame`
 - bands and mono waveform samples
-- arithmetic, clamp/wrap, sin/cos, comparisons, select
+- arithmetic, clamp/wrap, sin/cos, hypotenuse, comparisons, select
 - palette sampling and pixel emission
 
 Color values inside the VM are normalized `0..1`; the renderer converts them to

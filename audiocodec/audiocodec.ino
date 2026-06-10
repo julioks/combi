@@ -21,8 +21,8 @@
 
 #define LED_PIN         23   // NeoPixel data output. GPIO23 is output-capable and does not overlap the I2S pins.
 
-static constexpr uint16_t LED_DRIVER_GRID_WIDTH = 32;
-static constexpr uint16_t LED_DRIVER_GRID_HEIGHT = 16;
+static constexpr uint16_t LED_DRIVER_GRID_WIDTH = 20;
+static constexpr uint16_t LED_DRIVER_GRID_HEIGHT = 20;
 static constexpr uint32_t LED_COUNT_32 = (uint32_t)LED_DRIVER_GRID_WIDTH * (uint32_t)LED_DRIVER_GRID_HEIGHT;
 static_assert(LED_COUNT_32 <= 65535UL, "Adafruit_NeoPixel uses 16-bit pixel indexes; use parallel output or another driver for larger panels.");
 static constexpr uint16_t LED_COUNT = (uint16_t)LED_COUNT_32;
@@ -40,29 +40,50 @@ static constexpr uint32_t ZC_RING_SIZE = 1UL << ZC_RING_BITS;
 static constexpr uint32_t ZC_RING_MASK = ZC_RING_SIZE - 1;
 
 enum LED_DRIVER_LAYOUT : uint8_t {
-  LED_DRIVER_LAYOUT_COLUMN_SERPENTINE
+  LED_DRIVER_LAYOUT_COLUMN_SERPENTINE,
+  LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE,
+  LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y
 };
 
-static constexpr LED_DRIVER_LAYOUT LED_LAYOUT = LED_DRIVER_LAYOUT_COLUMN_SERPENTINE;
+static constexpr LED_DRIVER_LAYOUT LED_LAYOUT = LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y;
 static constexpr bool LED_FIRST_PIXEL_IS_BOTTOM_LEFT = true; // Flip this if the visualizers draw upside down.
 
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_RGB + NEO_KHZ800);
 uint8_t currentLedBrightness = LED_BRIGHTNESS;
 
 #ifndef I2S_COMM_FORMAT_STAND_I2S
   #define I2S_COMM_FORMAT_STAND_I2S I2S_COMM_FORMAT_I2S
 #endif
 
-uint16_t ledIndexXY(uint16_t x, uint16_t yFromBottom) {
-  if (x >= LED_DRIVER_GRID_WIDTH || yFromBottom >= LED_DRIVER_GRID_HEIGHT) {
+uint16_t ledIndexXY(uint16_t x, uint16_t yFromTop) {
+  if (x >= LED_DRIVER_GRID_WIDTH || yFromTop >= LED_DRIVER_GRID_HEIGHT) {
     return 0;
   }
 
   uint16_t stripY = LED_FIRST_PIXEL_IS_BOTTOM_LEFT
-    ? yFromBottom
-    : (LED_DRIVER_GRID_HEIGHT - 1 - yFromBottom);
+    ? (LED_DRIVER_GRID_HEIGHT - 1 - yFromTop)
+    : yFromTop;
 
   switch (LED_LAYOUT) {
+    case LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE:
+    case LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y: {
+      static_assert(LED_DRIVER_GRID_WIDTH == 20 && LED_DRIVER_GRID_HEIGHT == 20,
+          "LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE is only for the tested 20x20 panel.");
+
+      if (LED_LAYOUT == LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y) {
+        yFromTop = (LED_DRIVER_GRID_HEIGHT - 1) - yFromTop;
+      }
+
+      if (x < 10) {
+        return ((uint16_t)yFromTop * 10U) + ((yFromTop & 0x01) ? x : (uint8_t)(9 - x));
+      }
+
+      const uint16_t localX = x - 10;
+      const uint16_t rowFromBottom = (LED_DRIVER_GRID_HEIGHT - 1) - yFromTop;
+      return 200U + (rowFromBottom * 10U) +
+        ((rowFromBottom & 0x01) ? (uint8_t)(9 - localX) : localX);
+    }
+
     case LED_DRIVER_LAYOUT_COLUMN_SERPENTINE:
     default:
       if (x & 0x01) {
@@ -70,6 +91,14 @@ uint16_t ledIndexXY(uint16_t x, uint16_t yFromBottom) {
       }
       return (uint16_t)x * LED_DRIVER_GRID_HEIGHT + stripY;
   }
+}
+
+uint16_t visualizerLedIndexXY(uint16_t x, uint16_t yFromBottom) {
+  if (yFromBottom >= LED_DRIVER_GRID_HEIGHT) {
+    return 0;
+  }
+
+  return ledIndexXY(x, yFromBottom);
 }
 
 #include "audio/AudioAnalyzer.h"

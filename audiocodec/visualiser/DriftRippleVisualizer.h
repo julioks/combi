@@ -345,7 +345,7 @@ private:
         float tone = wrap01(ripple.tone + ripple.toneDrift * ripple.age + trebleEnergy * 0.08f + edge * 0.045f + sinf(treblePhase + ripple.seed) * 0.030f);
         visualizerSamplePalette(palette, tone, r, g, b);
         float glow = 0.10f + clamp01(level) * 1.10f;
-        trail.addPixel(ledIndexXY(x, y), r * glow, g * glow, b * glow);
+        trail.addPixel(visualizerLedIndexXY(x, y), r * glow, g * glow, b * glow);
       }
     }
   }

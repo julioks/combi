@@ -30,8 +30,8 @@ static constexpr uint32_t SERIAL_BAUD = 115200;
 #endif
 
 static constexpr uint8_t LED_PIN = 23;
-static constexpr uint8_t LED_DRIVER_GRID_WIDTH = 16;
-static constexpr uint8_t LED_DRIVER_GRID_HEIGHT = 16;
+static constexpr uint8_t LED_DRIVER_GRID_WIDTH = 20;
+static constexpr uint8_t LED_DRIVER_GRID_HEIGHT = 20;
 static constexpr uint16_t LED_COUNT = LED_DRIVER_GRID_WIDTH * LED_DRIVER_GRID_HEIGHT;
 
 // Raw audio RGB visualizer.
@@ -85,12 +85,15 @@ static constexpr uint32_t RAW_AUDIO_RGB_PUBLISH_INTERVAL_US =
 #define LED_DRIVER_LAYOUT_ROW_SERPENTINE 2
 #define LED_DRIVER_LAYOUT_COLUMN_MAJOR 3
 #define LED_DRIVER_LAYOUT_COLUMN_SERPENTINE 4
+#define LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE 5
+#define LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y 6
 
-// Your 16x16 panel reports corners like a column-major serpentine matrix:
-// index 0 is top-left, then pixels run down the first column and snake upward
-// on the next column.
+// 20x20 test panel: two 10x20 halves. The left half starts at top-right and
+// snakes downward; the right half starts at bottom-left and snakes upward.
+// Use the FLIPPED_Y variant when the panel is mounted with top/bottom swapped
+// but left/right kept in place.
 #ifndef LED_DRIVER_LAYOUT
-#define LED_DRIVER_LAYOUT LED_DRIVER_LAYOUT_COLUMN_SERPENTINE
+#define LED_DRIVER_LAYOUT LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y
 #endif
 
 // Decoded RGB grid storage.
