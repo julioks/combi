@@ -10,6 +10,8 @@ static constexpr uint16_t VU_MAX_LAYERS = 4;
 static constexpr uint16_t VU_MAX_PROGRAM_BYTES = 768;
 static constexpr uint8_t VU_MAX_PALETTE_STOPS = 16;
 static constexpr uint8_t VU_LAYER_STATE_SLOTS = 32;
+static constexpr uint8_t VU_LAYER_FLAG_TRAIL = 0x01;
+static constexpr uint8_t VU_TRAIL_FADE_STATE_SLOT = VU_LAYER_STATE_SLOTS - 1;
 
 enum VuPacketKind : uint8_t {
   VU_PACKET_LAYER = 1,
@@ -91,6 +93,10 @@ enum VuOpcode : uint8_t {
   VU_OP_PUSH_STATE = 0x0C,
   VU_OP_STORE_STATE = 0x0D,
 
+  VU_OP_DUP = 0x10,
+  VU_OP_DROP = 0x11,
+  VU_OP_SWAP = 0x12,
+
   VU_OP_ADD = 0x20,
   VU_OP_SUB = 0x21,
   VU_OP_MUL = 0x22,
@@ -107,6 +113,7 @@ enum VuOpcode : uint8_t {
   VU_OP_GREATER = 0x2D,
   VU_OP_SELECT = 0x2E,
   VU_OP_SMOOTHSTEP = 0x2F,
+  VU_OP_HYPOT = 0x30,
 
   VU_OP_SAMPLE_PALETTE = 0x40,
   VU_OP_EMIT_RGB = 0x41,

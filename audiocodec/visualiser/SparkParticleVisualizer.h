@@ -385,7 +385,7 @@ private:
       return;
     }
 
-    trail.addPixel(ledIndexXY((uint16_t)x, (uint16_t)y), r, g, b);
+    trail.addPixel(visualizerLedIndexXY((uint16_t)x, (uint16_t)y), r, g, b);
   }
 
   uint8_t chooseParticleSlot() {

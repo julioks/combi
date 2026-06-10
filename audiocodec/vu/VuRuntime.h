@@ -14,7 +14,7 @@ public:
     store = programStore;
     fallbackSpectrum.begin();
     frameCanvas.clear();
-    layerCanvas.clear();
+    trailCanvas.clear();
     ditherFrame = 0;
     clearLayerStates();
   }
@@ -22,7 +22,7 @@ public:
   void reset() {
     fallbackSpectrum.reset();
     frameCanvas.clear();
-    layerCanvas.clear();
+    trailCanvas.clear();
     ditherFrame = 0;
     clearLayerStates();
   }
@@ -31,21 +31,37 @@ public:
     frameCanvas.clear();
 
     if (store == nullptr || !store->hasLayers()) {
+      trailCanvas.clear();
       fallbackSpectrum.render(frameCanvas, audio, VISUALIZER_PALETTE_STANDARD);
       frameCanvas.writeTo(pixels, ditherFrame++);
       return;
     }
 
     const uint8_t layerCount = store->count();
+    bool renderedTrailLayer = false;
+    bool fadedTrailCanvas = false;
     for (uint8_t i = 0; i < layerCount; i++) {
       const VuLayerProgram& layer = store->layer(i);
       if (!layer.loaded || layer.pixelProgramLength == 0) {
         continue;
       }
 
-      layerCanvas.clear();
-      renderPixelProgram(layer, i, audio);
-      frameCanvas.blendAdd(layerCanvas);
+      if ((layer.flags & VU_LAYER_FLAG_TRAIL) != 0) {
+        if (!fadedTrailCanvas) {
+          trailCanvas.fade(layerTrailFade(i));
+          fadedTrailCanvas = true;
+        }
+        renderedTrailLayer = true;
+        renderPixelProgram(layer, i, audio, trailCanvas);
+      } else {
+        renderPixelProgram(layer, i, audio, frameCanvas);
+      }
+    }
+
+    if (renderedTrailLayer) {
+      trailCanvas.blendInto(frameCanvas);
+    } else {
+      trailCanvas.clear();
     }
 
     frameCanvas.writeTo(pixels, ditherFrame++);
@@ -78,10 +94,67 @@ private:
     }
   };
 
+  struct CompactTrailCanvas {
+    uint8_t red[LED_COUNT];
+    uint8_t green[LED_COUNT];
+    uint8_t blue[LED_COUNT];
+
+    void clear() {
+      for (uint16_t i = 0; i < LED_COUNT; i++) {
+        red[i] = 0;
+        green[i] = 0;
+        blue[i] = 0;
+      }
+    }
+
+    void fade(float amount) {
+      const uint16_t scale = (uint16_t)(clamp01(amount) * 255.0f);
+      for (uint16_t i = 0; i < LED_COUNT; i++) {
+        red[i] = (uint8_t)(((uint16_t)red[i] * scale) / 255U);
+        green[i] = (uint8_t)(((uint16_t)green[i] * scale) / 255U);
+        blue[i] = (uint8_t)(((uint16_t)blue[i] * scale) / 255U);
+      }
+    }
+
+    void addPixel(uint16_t index, float r, float g, float b) {
+      if (index >= LED_COUNT) {
+        return;
+      }
+
+      red[index] = addChannel(red[index], r);
+      green[index] = addChannel(green[index], g);
+      blue[index] = addChannel(blue[index], b);
+    }
+
+    void blendInto(VisualizerCanvas& target) const {
+      for (uint16_t i = 0; i < LED_COUNT; i++) {
+        target.addPixel(i, red[i], green[i], blue[i]);
+      }
+    }
+
+    uint8_t addChannel(uint8_t current, float amount) const {
+      if (amount <= 0.0f) {
+        return current;
+      }
+      const uint16_t next = (uint16_t)current + toByte(amount);
+      return next > 255U ? 255U : (uint8_t)next;
+    }
+
+    uint8_t toByte(float value) const {
+      if (value <= 0.0f) {
+        return 0;
+      }
+      if (value >= 255.0f) {
+        return 255;
+      }
+      return (uint8_t)(value + 0.5f);
+    }
+  };
+
   VuProgramStore* store = nullptr;
   SpectrumGridEffect fallbackSpectrum;
   VisualizerCanvas frameCanvas;
-  VisualizerCanvas layerCanvas;
+  CompactTrailCanvas trailCanvas;
   float layerState[VU_MAX_LAYERS][VU_LAYER_STATE_SLOTS];
   uint8_t ditherFrame = 0;
 
@@ -93,7 +166,19 @@ private:
     }
   }
 
-  void renderPixelProgram(const VuLayerProgram& layer, uint8_t layerIndex, const AudioAnalysisFrame& audio) {
+  float layerTrailFade(uint8_t layerIndex) const {
+    float fade = 0.82f;
+    if (layerIndex < VU_MAX_LAYERS) {
+      fade = layerState[layerIndex][VU_TRAIL_FADE_STATE_SLOT];
+    }
+    if (fade <= 0.01f || fade > 1.0f) {
+      fade = 0.82f;
+    }
+    return fade;
+  }
+
+  template <typename CanvasT>
+  void renderPixelProgram(const VuLayerProgram& layer, uint8_t layerIndex, const AudioAnalysisFrame& audio, CanvasT& targetCanvas) {
     const uint32_t nowMs = millis();
 
     if (layer.frameProgramLength > 0) {
@@ -125,7 +210,7 @@ private:
         float b = 0.0f;
         runVm(layer, layerIndex, audio, program, length, x, y, nowMs, r, g, b);
         if (r > 0.0f || g > 0.0f || b > 0.0f) {
-          layerCanvas.addPixel(ledIndexXY(x, y), r * 255.0f, g * 255.0f, b * 255.0f);
+          targetCanvas.addPixel(visualizerLedIndexXY(x, y), r * 255.0f, g * 255.0f, b * 255.0f);
         }
       }
     }
@@ -288,6 +373,30 @@ private:
         continue;
       }
 
+      if (op == VU_OP_DUP) {
+        if (stack.count > 0) {
+          stack.push(stack.values[stack.count - 1]);
+        }
+        continue;
+      }
+
+      if (op == VU_OP_DROP) {
+        float ignored = 0.0f;
+        stack.pop(ignored);
+        continue;
+      }
+
+      if (op == VU_OP_SWAP) {
+        if (stack.count >= 2) {
+          float& a = stack.values[stack.count - 1];
+          float& b = stack.values[stack.count - 2];
+          const float temp = a;
+          a = b;
+          b = temp;
+        }
+        continue;
+      }
+
       executeMathOp(op, stack);
     }
   }
@@ -353,6 +462,9 @@ private:
         stack.pop(a);
         a = clamp01(a);
         stack.push(a * a * (3.0f - 2.0f * a));
+        return;
+      case VU_OP_HYPOT:
+        stack.pop(b); stack.pop(a); stack.push(sqrtf(a * a + b * b));
         return;
       default:
         return;

@@ -215,7 +215,7 @@ public:
       return;
     }
 
-    addPixel(ledIndexXY((uint16_t)x, (uint16_t)y), r, g, b);
+    addPixel(visualizerLedIndexXY((uint16_t)x, (uint16_t)y), r, g, b);
   }
 
   void blendAdd(const VisualizerCanvas& source) {
