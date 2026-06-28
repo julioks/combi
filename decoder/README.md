@@ -10,7 +10,7 @@ generating matching Manchester WAV files.
 
 ## Current Capabilities
 
-- Captures input transitions from a comparator on ESP32 GPIO27.
+- Captures input transitions from a comparator on ESP32 GPIO21.
 - Buffers edge events in an interrupt-safe ring buffer.
 - Runs capture on core 0 and Manchester decoding/LED servicing on core 1.
 - Learns bit timing from a `0x55` preamble.
@@ -81,7 +81,7 @@ frames and leaving missing pixels off.
 
 ## Hardware Defaults
 
-- Comparator output: ESP32 GPIO27
+- Comparator output: ESP32 GPIO21
 - NeoPixel data output: ESP32 GPIO23
 - Physical LED matrix: 20x20
 - Default LED layout: split 10x20 serpentine, flipped Y

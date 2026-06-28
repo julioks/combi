@@ -36,7 +36,7 @@
   - This decoder detects that break, discards the remaining 7 SFD bits, then reads payload MSB-first.
 
   Hardware:
-  - Comparator output -> ESP32 GPIO27
+  - Comparator output -> ESP32 GPIO21
   - Comparator GND and ESP32 GND must be connected
   - Comparator output must be 0 to 3.3 V, not 5 V
 

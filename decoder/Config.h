@@ -6,7 +6,8 @@
 // Settings
 // ============================================================================
 
-static constexpr int CAPTURE_PIN = 27;
+// Hardware pin layout follows audiocodec/audiocodec.ino.
+static constexpr int CAPTURE_PIN = 21;
 
 // Higher baud keeps diagnostic logging from becoming the next missed-edge
 // source while recording tape playback runs.
