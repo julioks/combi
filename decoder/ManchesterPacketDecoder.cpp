@@ -84,6 +84,7 @@ void ManchesterPacketDecoder::resetPacketDecoderOnly() {
   activeInvert = false;
   sfdBitsLeftToDiscard = 0;
   inferredMidBitsThisPacket = 0;
+  packetStartFrameCounter = ledGridFrameCounter;
 }
 
 void ManchesterPacketDecoder::resetPayloadConsumer() {
@@ -105,6 +106,7 @@ void ManchesterPacketDecoder::resetForNextPacket() {
   sawBoundarySinceLastMid = false;
 
   bitPeriodQ8 = 0;
+  lastGoodBitPeriodQ8 = 0;
   periodSamples = 0;
 
   resetPayloadConsumer();
@@ -130,6 +132,48 @@ uint32_t ManchesterPacketDecoder::bitPeriodUs() const {
   return bitPeriodQ8 >> 8;
 }
 
+bool ManchesterPacketDecoder::readingUnpublishedPayload() const {
+  return (
+    mode == READ_DATA &&
+    !rawAudioRgbModeActive &&
+    ledGridFrameCounter == packetStartFrameCounter
+  );
+}
+
+void ManchesterPacketDecoder::rememberBitPeriodEstimate() {
+  if (!timingReady()) {
+    return;
+  }
+
+  const uint32_t periodUs = bitPeriodUs();
+  if (periodUs == 0) {
+    return;
+  }
+
+  lastGoodBitPeriodQ8 = bitPeriodQ8;
+
+  if (statBitPeriodMinUs == 0 || periodUs < statBitPeriodMinUs) {
+    statBitPeriodMinUs = periodUs;
+  }
+  if (periodUs > statBitPeriodMaxUs) {
+    statBitPeriodMaxUs = periodUs;
+  }
+}
+
+void ManchesterPacketDecoder::seedTimingFromLastGoodPeriod() {
+  bitPeriodQ8 = lastGoodBitPeriodQ8;
+  periodSamples = lastGoodBitPeriodQ8 == 0 ? 0 : MIN_PERIOD_SAMPLES;
+}
+
+void ManchesterPacketDecoder::notePayloadDropGap(uint32_t gapUs, uint32_t bitUs) {
+  if (!readingUnpublishedPayload()) {
+    return;
+  }
+
+  statLastDropGapUs = gapUs;
+  statLastDropBitUs = bitUs;
+}
+
 void ManchesterPacketDecoder::updatePreamblePeriod(uint32_t gapUs) {
   if (gapUs < MIN_PREAMBLE_GAP_US || gapUs > MAX_PREAMBLE_GAP_US) {
     return;
@@ -147,6 +191,8 @@ void ManchesterPacketDecoder::updatePreamblePeriod(uint32_t gapUs) {
   if (periodSamples < 255) {
     periodSamples++;
   }
+
+  rememberBitPeriodEstimate();
 }
 
 void ManchesterPacketDecoder::updateBoundaryPeriod(uint32_t boundaryGapUs) {
@@ -161,6 +207,7 @@ void ManchesterPacketDecoder::updateBoundaryPeriod(uint32_t boundaryGapUs) {
   }
 
   bitPeriodQ8 = ((bitPeriodQ8 * 31UL) + sampleQ8) >> 5;
+  rememberBitPeriodEstimate();
 }
 
 void ManchesterPacketDecoder::updateMidPeriod(uint32_t midGapUs) {
@@ -174,6 +221,7 @@ void ManchesterPacketDecoder::updateMidPeriod(uint32_t midGapUs) {
 
   // Slower smoothing once timing is established.
   bitPeriodQ8 = ((bitPeriodQ8 * 15UL) + sampleQ8) >> 4;
+  rememberBitPeriodEstimate();
 }
 
 void ManchesterPacketDecoder::startSfdDiscard(uint8_t repeatedRawBit) {
@@ -190,6 +238,7 @@ void ManchesterPacketDecoder::startSfdDiscard(uint8_t repeatedRawBit) {
   // Discard the remaining 7 SFD bits. The next bit after that is payload bit 0.
   sfdBitsLeftToDiscard = 7;
   inferredMidBitsThisPacket = 0;
+  packetStartFrameCounter = ledGridFrameCounter;
   statSfdLocks++;
 
 }
@@ -292,10 +341,10 @@ void ManchesterPacketDecoder::treatEdgeAsFirstMidBit(const EdgeEvent &event) {
 }
 
 void ManchesterPacketDecoder::resetTimingAndSearchFromThisEdge(const EdgeEvent &event) {
-  const bool wasReadingData = (mode == READ_DATA);
+  const bool wasReadingUnpublishedData = readingUnpublishedPayload();
   statTimingResets++;
-  if (wasReadingData) {
-    statDataTimingResets++;
+  if (wasReadingUnpublishedData) {
+    statDroppedPayloadResets++;
   }
   resetPacketDecoderOnly();
   // Packet mode needs a fresh payload parser after an impossible Manchester
@@ -309,8 +358,7 @@ void ManchesterPacketDecoder::resetTimingAndSearchFromThisEdge(const EdgeEvent &
   haveLastAcceptedRawBit = false;
   lastAcceptedRawBit = 0;
   sawBoundarySinceLastMid = false;
-  bitPeriodQ8 = 0;
-  periodSamples = 0;
+  seedTimingFromLastGoodPeriod();
 
   lastEdgeUs = event.t_us;
   lastLevel = event.level;
@@ -460,6 +508,7 @@ void ManchesterPacketDecoder::processEdge(const EdgeEvent &event) {
     // We lost timing, but this is not silence. A guarded resync chunk uses this
     // impossible Manchester gap; valid wow/flutter stays inside the timing
     // windows above and keeps updating the period estimate.
+    notePayloadDropGap(gapFromLastMid, bitUs);
     statLongGapResets++;
     resetTimingAndSearchFromThisEdge(event);
     return;
@@ -520,8 +569,16 @@ void ManchesterPacketDecoder::printDiagnostics(
   Serial.print(statSameLevelEdges);
   Serial.print(" long_reset=");
   Serial.print(statLongGapResets);
-  Serial.print(" data_reset=");
-  Serial.print(statDataTimingResets);
+  Serial.print(" drop_reset=");
+  Serial.print(statDroppedPayloadResets);
+  Serial.print(" drop_gap=");
+  Serial.print(statLastDropGapUs);
+  Serial.print(" drop_bit=");
+  Serial.print(statLastDropBitUs);
+  Serial.print(" bit_lo=");
+  Serial.print(statBitPeriodMinUs);
+  Serial.print(" bit_hi=");
+  Serial.print(statBitPeriodMaxUs);
   Serial.print(" silence_reset=");
   Serial.print(statSilenceResets);
   Serial.print(" timing_reset=");

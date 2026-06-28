@@ -60,6 +60,7 @@ public:
     lastAcceptedRawBit = 0;
     sawBoundarySinceLastMid = false;
     bitPeriodQ8 = 0;
+    lastGoodBitPeriodQ8 = 0;
     periodSamples = 0;
     resetPayloadConsumer();
   }
@@ -189,6 +190,7 @@ private:
   uint8_t lastAcceptedRawBit = 0;
   bool sawBoundarySinceLastMid = false;
   uint32_t bitPeriodQ8 = 0;
+  uint32_t lastGoodBitPeriodQ8 = 0;
   uint8_t periodSamples = 0;
   bool havePrevMidBit = false;
   uint8_t prevMidBit = 0;
@@ -223,6 +225,19 @@ private:
     return bitPeriodQ8 == 0 ? 0 : bitPeriodQ8 >> 8;
   }
 
+  void rememberBitPeriodEstimate() {
+    if (!timingReady() || bitPeriodQ8 == 0) {
+      return;
+    }
+
+    lastGoodBitPeriodQ8 = bitPeriodQ8;
+  }
+
+  void seedTimingFromLastGoodPeriod() {
+    bitPeriodQ8 = lastGoodBitPeriodQ8;
+    periodSamples = lastGoodBitPeriodQ8 == 0 ? 0 : ZC_MIN_PERIOD_SAMPLES;
+  }
+
   void updatePreamblePeriod(uint32_t gapUs) {
     if (gapUs < ZC_MIN_PREAMBLE_GAP_US || gapUs > ZC_MAX_PREAMBLE_GAP_US) {
       return;
@@ -236,6 +251,7 @@ private:
     if (periodSamples < 255) {
       periodSamples++;
     }
+    rememberBitPeriodEstimate();
   }
 
   void updateBoundaryPeriod(uint32_t boundaryGapUs) {
@@ -246,6 +262,7 @@ private:
       return;
     }
     bitPeriodQ8 = ((bitPeriodQ8 * 31UL) + sampleQ8) >> 5;
+    rememberBitPeriodEstimate();
   }
 
   void updateMidPeriod(uint32_t midGapUs) {
@@ -256,6 +273,7 @@ private:
       return;
     }
     bitPeriodQ8 = ((bitPeriodQ8 * 15UL) + sampleQ8) >> 4;
+    rememberBitPeriodEstimate();
   }
 
   void startSfdDiscard(uint8_t repeatedRawBit) {
@@ -356,8 +374,7 @@ private:
     haveLastAcceptedRawBit = false;
     lastAcceptedRawBit = 0;
     sawBoundarySinceLastMid = false;
-    bitPeriodQ8 = 0;
-    periodSamples = 0;
+    seedTimingFromLastGoodPeriod();
     lastEdgeUs = event.t_us;
     lastLevel = event.level;
     treatEdgeAsFirstMidBit(event);

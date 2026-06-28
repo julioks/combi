@@ -28,6 +28,7 @@ struct ManchesterPacketDecoder {
 
   // Q8 fixed-point bit period estimate.
   uint32_t bitPeriodQ8 = 0;
+  uint32_t lastGoodBitPeriodQ8 = 0;
   uint8_t periodSamples = 0;
 
   bool havePrevMidBit = false;
@@ -37,6 +38,7 @@ struct ManchesterPacketDecoder {
   bool activeInvert = false;
   uint8_t sfdBitsLeftToDiscard = 0;
   uint8_t inferredMidBitsThisPacket = 0;
+  uint32_t packetStartFrameCounter = 0;
 
   uint32_t statEdgesSeen = 0;
   uint32_t statPreambleEdges = 0;
@@ -47,11 +49,15 @@ struct ManchesterPacketDecoder {
   uint32_t statEarlyEdges = 0;
   uint32_t statSameLevelEdges = 0;
   uint32_t statLongGapResets = 0;
-  uint32_t statDataTimingResets = 0;
+  uint32_t statDroppedPayloadResets = 0;
   uint32_t statSilenceResets = 0;
   uint32_t statTimingResets = 0;
   uint32_t statSfdLocks = 0;
   uint32_t statInferredMidBits = 0;
+  uint32_t statBitPeriodMinUs = 0;
+  uint32_t statBitPeriodMaxUs = 0;
+  uint32_t statLastDropGapUs = 0;
+  uint32_t statLastDropBitUs = 0;
 
   LedProtocolParser payloadParser;
   RawAudioRgbFramePusher rawFramePusher;
@@ -72,6 +78,10 @@ struct ManchesterPacketDecoder {
   void finishPacketBecauseOfSilence();
   bool timingReady() const;
   uint32_t bitPeriodUs() const;
+  bool readingUnpublishedPayload() const;
+  void rememberBitPeriodEstimate();
+  void seedTimingFromLastGoodPeriod();
+  void notePayloadDropGap(uint32_t gapUs, uint32_t bitUs);
   void updatePreamblePeriod(uint32_t gapUs);
   void updateBoundaryPeriod(uint32_t boundaryGapUs);
   void updateMidPeriod(uint32_t midGapUs);

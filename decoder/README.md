@@ -117,10 +117,13 @@ Important options:
 - `ZC_TRACK_BOUNDARY_PERIOD`: lets boundary edges tune the bit-period estimate.
   The default is off because higher-speed tape runs showed boundary timing
   distortion before mid-bit data edges failed.
-- `ZC_MISSED_MID_RECOVERY`: optional one-missed-mid-bit recovery experiment in
+- `ZC_MISSED_MID_RECOVERY`: optional missed-mid-bit recovery experiment in
   the raw Manchester edge detector. The default is on, but only after SFD lock.
 - `ZC_MAX_INFERRED_MID_BITS_PER_PACKET`: caps inferred bits per guarded chunk.
   The default is `1`; larger damage is still abandoned and reacquired by resync.
+- Guarded resyncs keep the last good tape-speed estimate, so slow cassette drift
+  does not force a fresh period calibration after every dropped chunk. A real
+  silence/new run clears that estimate.
 
 The default output driver is NeoPixel. If the Adafruit NeoPixel library is not
 installed or no panel is connected, switch `LED_OUTPUT_DRIVER` to
