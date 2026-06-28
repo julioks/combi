@@ -22,6 +22,9 @@ struct ManchesterPacketDecoder {
 
   bool haveLastMid = false;
   uint32_t lastMidUs = 0;
+  bool haveLastAcceptedRawBit = false;
+  uint8_t lastAcceptedRawBit = 0;
+  bool sawBoundarySinceLastMid = false;
 
   // Q8 fixed-point bit period estimate.
   uint32_t bitPeriodQ8 = 0;
@@ -33,6 +36,20 @@ struct ManchesterPacketDecoder {
 
   bool activeInvert = false;
   uint8_t sfdBitsLeftToDiscard = 0;
+
+  uint32_t statEdgesSeen = 0;
+  uint32_t statPreambleEdges = 0;
+  uint32_t statMidBits = 0;
+  uint32_t statPayloadBits = 0;
+  uint32_t statBoundaryEdges = 0;
+  uint32_t statTooCloseEdges = 0;
+  uint32_t statEarlyEdges = 0;
+  uint32_t statSameLevelEdges = 0;
+  uint32_t statLongGapResets = 0;
+  uint32_t statSilenceResets = 0;
+  uint32_t statTimingResets = 0;
+  uint32_t statSfdLocks = 0;
+  uint32_t statInferredMidBits = 0;
 
   LedProtocolParser payloadParser;
   RawAudioRgbFramePusher rawFramePusher;
@@ -61,9 +78,12 @@ struct ManchesterPacketDecoder {
   void feedSfdDiscardBit(uint8_t rawBit);
   void feedDataBit(uint8_t rawBit);
   void feedMidBit(uint8_t rawBit);
+  void feedInferredMidBit();
   void acceptMidBitEdge(const EdgeEvent &event);
   void treatEdgeAsFirstMidBit(const EdgeEvent &event);
   void resetTimingAndSearchFromThisEdge(const EdgeEvent &event);
+  bool recoverOneMissedMidBitBefore(const EdgeEvent &event, uint32_t bitUs);
   void processEdge(const EdgeEvent &event);
   void pollForSilence();
+  void printDiagnostics(uint32_t isrDrops, uint32_t ringFill, uint32_t ringHighWater) const;
 };

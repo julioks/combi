@@ -7,7 +7,12 @@
 // ============================================================================
 
 static constexpr int CAPTURE_PIN = 27;
-static constexpr uint32_t SERIAL_BAUD = 115200;
+
+// Higher baud keeps diagnostic logging from becoming the next missed-edge
+// source while recording tape playback runs.
+#ifndef SERIAL_BAUD
+#define SERIAL_BAUD 921600
+#endif
 
 // LED output driver selection.
 #define LED_OUTPUT_DRIVER_SERIAL 1
@@ -18,7 +23,7 @@ static constexpr uint32_t SERIAL_BAUD = 115200;
 #define LED_SERIAL_OUTPUT_FRAME_NUMBER_ONLY 2
 
 // Change this to LED_OUTPUT_DRIVER_NEOPIXEL when the Adafruit_NeoPixel
-// library is installed and the physical 16x16 output is connected.
+// library is installed and the physical LED output is connected.
 #ifndef LED_OUTPUT_DRIVER
 #define LED_OUTPUT_DRIVER LED_OUTPUT_DRIVER_NEOPIXEL
 #endif
@@ -30,8 +35,50 @@ static constexpr uint32_t SERIAL_BAUD = 115200;
 #endif
 
 static constexpr uint8_t LED_PIN = 23;
+
+#define LED_PANEL_PROFILE_16X16_TEST 1
+#define LED_PANEL_PROFILE_WEIRD_20X20 2
+
+// Demo panel: weird 20x20 split 10x20 layout.
+#ifndef LED_PANEL_PROFILE
+#define LED_PANEL_PROFILE LED_PANEL_PROFILE_WEIRD_20X20
+#endif
+
+#define LED_DRIVER_LAYOUT_ROW_MAJOR 1
+#define LED_DRIVER_LAYOUT_ROW_SERPENTINE 2
+#define LED_DRIVER_LAYOUT_COLUMN_MAJOR 3
+#define LED_DRIVER_LAYOUT_COLUMN_SERPENTINE 4
+#define LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE 5
+#define LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y 6
+
+#if LED_PANEL_PROFILE == LED_PANEL_PROFILE_16X16_TEST
+static constexpr uint8_t LED_DRIVER_GRID_WIDTH = 16;
+static constexpr uint8_t LED_DRIVER_GRID_HEIGHT = 16;
+#ifndef LED_DRIVER_LAYOUT
+#define LED_DRIVER_LAYOUT LED_DRIVER_LAYOUT_COLUMN_SERPENTINE
+#endif
+#ifndef LED_DRIVER_MIRROR_X
+#define LED_DRIVER_MIRROR_X 0
+#endif
+#elif LED_PANEL_PROFILE == LED_PANEL_PROFILE_WEIRD_20X20
 static constexpr uint8_t LED_DRIVER_GRID_WIDTH = 20;
 static constexpr uint8_t LED_DRIVER_GRID_HEIGHT = 20;
+#ifndef LED_DRIVER_LAYOUT
+#define LED_DRIVER_LAYOUT LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y
+#endif
+#ifndef LED_DRIVER_MIRROR_X
+#define LED_DRIVER_MIRROR_X 1
+#endif
+#else
+#error Unknown LED_PANEL_PROFILE selected.
+#endif
+
+#if LED_PANEL_PROFILE != LED_PANEL_PROFILE_WEIRD_20X20 && \
+    (LED_DRIVER_LAYOUT == LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE || \
+     LED_DRIVER_LAYOUT == LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y)
+#error Split 10x20 LED layouts require LED_PANEL_PROFILE_WEIRD_20X20.
+#endif
+
 static constexpr uint16_t LED_COUNT = LED_DRIVER_GRID_WIDTH * LED_DRIVER_GRID_HEIGHT;
 
 // Raw audio RGB visualizer.
@@ -74,27 +121,12 @@ static constexpr uint16_t LED_COUNT = LED_DRIVER_GRID_WIDTH * LED_DRIVER_GRID_HE
 #error RAW_AUDIO_RGB_TOGGLE_PIN must be -1 or a valid GPIO number
 #endif
 
-static constexpr uint8_t RAW_AUDIO_RGB_WIDTH = 16;
-static constexpr uint8_t RAW_AUDIO_RGB_HEIGHT = 16;
+static constexpr uint8_t RAW_AUDIO_RGB_WIDTH = LED_DRIVER_GRID_WIDTH;
+static constexpr uint8_t RAW_AUDIO_RGB_HEIGHT = LED_DRIVER_GRID_HEIGHT;
 static constexpr uint16_t RAW_AUDIO_RGB_PIXEL_COUNT =
     RAW_AUDIO_RGB_WIDTH * RAW_AUDIO_RGB_HEIGHT;
 static constexpr uint32_t RAW_AUDIO_RGB_PUBLISH_INTERVAL_US =
     1000000UL / RAW_AUDIO_RGB_PUBLISH_FPS;
-
-#define LED_DRIVER_LAYOUT_ROW_MAJOR 1
-#define LED_DRIVER_LAYOUT_ROW_SERPENTINE 2
-#define LED_DRIVER_LAYOUT_COLUMN_MAJOR 3
-#define LED_DRIVER_LAYOUT_COLUMN_SERPENTINE 4
-#define LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE 5
-#define LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y 6
-
-// 20x20 test panel: two 10x20 halves. The left half starts at top-right and
-// snakes downward; the right half starts at bottom-left and snakes upward.
-// Use the FLIPPED_Y variant when the panel is mounted with top/bottom swapped
-// but left/right kept in place.
-#ifndef LED_DRIVER_LAYOUT
-#define LED_DRIVER_LAYOUT LED_DRIVER_LAYOUT_SPLIT_10X20_SERPENTINE_FLIPPED_Y
-#endif
 
 // Decoded RGB grid storage.
 // 16384 pixels supports up to 128x128 and uses 49152 bytes for RGB data.
@@ -103,7 +135,7 @@ static constexpr uint32_t RAW_AUDIO_RGB_PUBLISH_INTERVAL_US =
 static constexpr uint32_t MAX_GRID_PIXELS = 2048;
 
 // Edges separated by this much silence end the current packet.
-static constexpr uint32_t SILENCE_RESET_US = 1000000; // 50 ms
+static constexpr uint32_t SILENCE_RESET_US = 1000000; // 1 s
 
 // Used before calibration is ready.
 // For a 22 kHz preamble edge rate, the preamble edge gap is about 45 us.
@@ -131,8 +163,29 @@ static constexpr uint32_t BOUNDARY_MAX_NUM = 2; // 2/3 bit period
 static constexpr uint32_t BOUNDARY_MAX_DEN = 3;
 static constexpr uint32_t MID_MIN_NUM = 3; // 3/4 bit period
 static constexpr uint32_t MID_MIN_DEN = 4;
-static constexpr uint32_t MID_MAX_NUM = 3; // 3/2 bit period
-static constexpr uint32_t MID_MAX_DEN = 2;
+// Keep the late-mid window below 1.5 bit periods. A 1.5-bit gap is exactly
+// where a missed mid-bit followed by a boundary edge lands, so accepting it as
+// a normal mid edge can hide a bit slip.
+static constexpr uint32_t MID_MAX_NUM = 4; // 4/3 bit period
+static constexpr uint32_t MID_MAX_DEN = 3;
+
+// Zero-cross diagnostics are aggregated and printed from the decoder task,
+// never from the ISR.
+#ifndef ZC_DIAGNOSTICS
+#define ZC_DIAGNOSTICS 1
+#endif
+
+#ifndef ZC_DIAGNOSTIC_INTERVAL_MS
+#define ZC_DIAGNOSTIC_INTERVAL_MS 500
+#endif
+
+// If exactly one mid-bit edge appears to be missing, the decoder can insert an
+// inferred raw bit before classifying the current edge. This preserves bit
+// alignment for single dropped transition events without changing the packet
+// format.
+#ifndef ZC_MISSED_MID_RECOVERY
+#define ZC_MISSED_MID_RECOVERY 1
+#endif
 
 // Capture buffer.
 // 8192 events gives about 372 ms of buffer at 22,000 edges/sec.

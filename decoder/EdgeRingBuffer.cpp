@@ -45,3 +45,9 @@ void IRAM_ATTR pushEdgeFromIsr(uint32_t t_us, uint8_t level) {
 uint32_t getIsrDropCount() {
   return isrDropCount;
 }
+
+uint32_t getEdgeRingFillLevel() {
+  const uint32_t head = ringHead;
+  const uint32_t tail = ringTail;
+  return (head - tail) & RING_MASK;
+}

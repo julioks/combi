@@ -1,6 +1,8 @@
 # Local Arduino tooling and machine-specific config
 .arduino/
 **/.arduino/
+.npm-cache/
+.mermaid-edge-profile/
 **/.tools/
 **/arduino-cli.yaml
 **/arduino-cli.cmd
@@ -32,6 +34,11 @@ compile_commands.json
 # Local publish/staging snapshots
 **/_git_publish*/
 .embedded-git/
+
+# Local Codex/session metadata and experiment logs
+.codex/
+.agents/
+logs/
 
 # Large local encoder media samples
 decoder/encoder-video/*.mp4

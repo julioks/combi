@@ -1,6 +1,7 @@
 #include "ManchesterPacketDecoder.h"
 
 #include "Config.h"
+#include "LedFrameGrid.h"
 
 static constexpr uint32_t RAW_AUDIO_RGB_TOGGLE_DEBOUNCE_MS = 30;
 
@@ -98,6 +99,9 @@ void ManchesterPacketDecoder::resetForNextPacket() {
 
   haveLastMid = false;
   lastMidUs = 0;
+  haveLastAcceptedRawBit = false;
+  lastAcceptedRawBit = 0;
+  sawBoundarySinceLastMid = false;
 
   bitPeriodQ8 = 0;
   periodSamples = 0;
@@ -106,6 +110,7 @@ void ManchesterPacketDecoder::resetForNextPacket() {
 }
 
 void ManchesterPacketDecoder::finishPacketBecauseOfSilence() {
+  statSilenceResets++;
   resetForNextPacket();
 
   if (rawAudioRgbModeActive) {
@@ -183,6 +188,7 @@ void ManchesterPacketDecoder::startSfdDiscard(uint8_t repeatedRawBit) {
   // The current repeated bit is already bit 0 of the 8-bit SFD.
   // Discard the remaining 7 SFD bits. The next bit after that is payload bit 0.
   sfdBitsLeftToDiscard = 7;
+  statSfdLocks++;
 
 }
 
@@ -244,15 +250,37 @@ void ManchesterPacketDecoder::feedMidBit(uint8_t rawBit) {
 
 void ManchesterPacketDecoder::feedDataBit(uint8_t rawBit) {
   const uint8_t bit = activeInvert ? (rawBit ^ 1) : rawBit;
+  statPayloadBits++;
 
   // Payload is forwarded bit-by-bit so indexed LED frames do not need any
   // sender-side byte padding between frame fields.
   payloadParser.feedBit(bit);
 }
 
+void ManchesterPacketDecoder::feedInferredMidBit() {
+  if (!haveLastAcceptedRawBit) {
+    return;
+  }
+
+  const uint8_t rawBit = sawBoundarySinceLastMid
+    ? lastAcceptedRawBit
+    : (uint8_t)(lastAcceptedRawBit ^ 1U);
+
+  feedMidBit(rawBit);
+  haveLastAcceptedRawBit = true;
+  lastAcceptedRawBit = rawBit;
+  sawBoundarySinceLastMid = false;
+  statMidBits++;
+  statInferredMidBits++;
+}
+
 void ManchesterPacketDecoder::acceptMidBitEdge(const EdgeEvent &event) {
   const uint8_t rawBit = event.level ? 1 : 0;
   feedMidBit(rawBit);
+  haveLastAcceptedRawBit = true;
+  lastAcceptedRawBit = rawBit;
+  sawBoundarySinceLastMid = false;
+  statMidBits++;
 }
 
 void ManchesterPacketDecoder::treatEdgeAsFirstMidBit(const EdgeEvent &event) {
@@ -262,6 +290,7 @@ void ManchesterPacketDecoder::treatEdgeAsFirstMidBit(const EdgeEvent &event) {
 }
 
 void ManchesterPacketDecoder::resetTimingAndSearchFromThisEdge(const EdgeEvent &event) {
+  statTimingResets++;
   resetPacketDecoderOnly();
   // Packet mode needs a fresh payload parser after an impossible Manchester
   // gap so guarded resync chunks can reacquire cleanly. Raw visualizer mode is
@@ -271,6 +300,9 @@ void ManchesterPacketDecoder::resetTimingAndSearchFromThisEdge(const EdgeEvent &
     resetPayloadConsumer();
   }
   haveLastMid = false;
+  haveLastAcceptedRawBit = false;
+  lastAcceptedRawBit = 0;
+  sawBoundarySinceLastMid = false;
   bitPeriodQ8 = 0;
   periodSamples = 0;
 
@@ -279,7 +311,35 @@ void ManchesterPacketDecoder::resetTimingAndSearchFromThisEdge(const EdgeEvent &
   treatEdgeAsFirstMidBit(event);
 }
 
+bool ManchesterPacketDecoder::recoverOneMissedMidBitBefore(const EdgeEvent &event, uint32_t bitUs) {
+#if ZC_MISSED_MID_RECOVERY
+  if (!haveLastMid || !haveLastAcceptedRawBit || bitUs == 0) {
+    return false;
+  }
+
+  const uint32_t gapFromLastMid = event.t_us - lastMidUs;
+  const uint32_t boundaryMin = (bitUs * BOUNDARY_MIN_NUM) / BOUNDARY_MIN_DEN;
+  const uint32_t midMax = (bitUs * MID_MAX_NUM) / MID_MAX_DEN;
+  const uint32_t recoverMin = bitUs + boundaryMin;
+  const uint32_t recoverMax = bitUs + midMax;
+
+  if (gapFromLastMid <= midMax || gapFromLastMid < recoverMin || gapFromLastMid > recoverMax) {
+    return false;
+  }
+
+  lastMidUs += bitUs;
+  feedInferredMidBit();
+  return true;
+#else
+  (void)event;
+  (void)bitUs;
+  return false;
+#endif
+}
+
 void ManchesterPacketDecoder::processEdge(const EdgeEvent &event) {
+  statEdgesSeen++;
+
   if (!haveAnyEdge) {
     haveAnyEdge = true;
     lastEdgeUs = event.t_us;
@@ -300,15 +360,18 @@ void ManchesterPacketDecoder::processEdge(const EdgeEvent &event) {
     return;
   }
 
-  if (event.level == lastLevel) {
-    // CHANGE interrupts should alternate levels. If this happens, assume noise/loss and restart search.
-    resetTimingAndSearchFromThisEdge(event);
-    return;
-  }
+  const bool sameLevelAsLastEdge = (event.level == lastLevel);
 
   if (!timingReady()) {
+    if (sameLevelAsLastEdge) {
+      statSameLevelEdges++;
+      resetTimingAndSearchFromThisEdge(event);
+      return;
+    }
+
     if (gapFromLastEdge < MIN_PREAMBLE_GAP_US) {
       // Too fast to be tape drift or a valid Manchester transition.
+      statTooCloseEdges++;
       lastEdgeUs = event.t_us;
       lastLevel = event.level;
       return;
@@ -316,12 +379,17 @@ void ManchesterPacketDecoder::processEdge(const EdgeEvent &event) {
 
     // During 0x55 preamble, valid mid-bit edges arrive roughly one bit period apart.
     updatePreamblePeriod(gapFromLastEdge);
+    statPreambleEdges++;
 
     lastEdgeUs = event.t_us;
     lastLevel = event.level;
 
     treatEdgeAsFirstMidBit(event);
     return;
+  }
+
+  if (sameLevelAsLastEdge) {
+    statSameLevelEdges++;
   }
 
   const uint32_t bitUs = bitPeriodUs();
@@ -332,15 +400,19 @@ void ManchesterPacketDecoder::processEdge(const EdgeEvent &event) {
     return;
   }
 
-  const uint32_t gapFromLastMid = event.t_us - lastMidUs;
   const uint32_t tooCloseMax = (bitUs * EDGE_TOO_CLOSE_NUM) / EDGE_TOO_CLOSE_DEN;
   const uint32_t boundaryMin = (bitUs * BOUNDARY_MIN_NUM) / BOUNDARY_MIN_DEN;
   const uint32_t boundaryMax = (bitUs * BOUNDARY_MAX_NUM) / BOUNDARY_MAX_DEN;
   const uint32_t midMin = (bitUs * MID_MIN_NUM) / MID_MIN_DEN;
   const uint32_t midMax = (bitUs * MID_MAX_NUM) / MID_MAX_DEN;
 
+  recoverOneMissedMidBitBefore(event, bitUs);
+
+  const uint32_t gapFromLastMid = event.t_us - lastMidUs;
+
   if (gapFromLastMid < tooCloseMax) {
     // Too fast to be tape drift, a bit boundary, or a mid-bit transition.
+    statTooCloseEdges++;
     lastEdgeUs = event.t_us;
     lastLevel = event.level;
     return;
@@ -350,6 +422,8 @@ void ManchesterPacketDecoder::processEdge(const EdgeEvent &event) {
     // Manchester boundary transition between two equal data bits.
     // Real edge, but not the bit-value transition, so track timing only.
     updateBoundaryPeriod(gapFromLastMid);
+    sawBoundarySinceLastMid = true;
+    statBoundaryEdges++;
     lastEdgeUs = event.t_us;
     lastLevel = event.level;
     return;
@@ -358,6 +432,7 @@ void ManchesterPacketDecoder::processEdge(const EdgeEvent &event) {
   if (gapFromLastMid < midMin) {
     // Between the valid boundary and mid-bit windows. Keep physical edge state,
     // but do not let an implausible interval pull the timing estimate around.
+    statEarlyEdges++;
     lastEdgeUs = event.t_us;
     lastLevel = event.level;
     return;
@@ -367,6 +442,7 @@ void ManchesterPacketDecoder::processEdge(const EdgeEvent &event) {
     // We lost timing, but this is not silence. A guarded resync chunk uses this
     // impossible Manchester gap; valid wow/flutter stays inside the timing
     // windows above and keeps updating the period estimate.
+    statLongGapResets++;
     resetTimingAndSearchFromThisEdge(event);
     return;
   }
@@ -390,4 +466,61 @@ void ManchesterPacketDecoder::pollForSilence() {
   if ((uint32_t)(nowUs - lastEdgeUs) >= SILENCE_RESET_US) {
     finishPacketBecauseOfSilence();
   }
+}
+
+void ManchesterPacketDecoder::printDiagnostics(
+  uint32_t isrDrops,
+  uint32_t ringFill,
+  uint32_t ringHighWater
+) const {
+#if ZC_DIAGNOSTICS
+  Serial.print("zc ms=");
+  Serial.print(millis());
+  Serial.print(" state=");
+  Serial.print((uint8_t)mode);
+  Serial.print(" raw=");
+  Serial.print(rawAudioRgbModeActive ? 1 : 0);
+  Serial.print(" bit_us=");
+  Serial.print(bitPeriodUs());
+  Serial.print(" samples=");
+  Serial.print(periodSamples);
+  Serial.print(" edges=");
+  Serial.print(statEdgesSeen);
+  Serial.print(" mid=");
+  Serial.print(statMidBits);
+  Serial.print(" payload=");
+  Serial.print(statPayloadBits);
+  Serial.print(" inferred=");
+  Serial.print(statInferredMidBits);
+  Serial.print(" boundary=");
+  Serial.print(statBoundaryEdges);
+  Serial.print(" close=");
+  Serial.print(statTooCloseEdges);
+  Serial.print(" early=");
+  Serial.print(statEarlyEdges);
+  Serial.print(" same=");
+  Serial.print(statSameLevelEdges);
+  Serial.print(" long_reset=");
+  Serial.print(statLongGapResets);
+  Serial.print(" silence_reset=");
+  Serial.print(statSilenceResets);
+  Serial.print(" timing_reset=");
+  Serial.print(statTimingResets);
+  Serial.print(" sfd=");
+  Serial.print(statSfdLocks);
+  Serial.print(" parser_err=");
+  Serial.print(payloadParser.errorCount);
+  Serial.print(" frames=");
+  Serial.print((uint32_t)ledGridFrameCounter);
+  Serial.print(" ring=");
+  Serial.print(ringFill);
+  Serial.print(" ring_hi=");
+  Serial.print(ringHighWater);
+  Serial.print(" isr_drop=");
+  Serial.println(isrDrops);
+#else
+  (void)isrDrops;
+  (void)ringFill;
+  (void)ringHighWater;
+#endif
 }

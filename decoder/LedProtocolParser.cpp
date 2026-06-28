@@ -48,6 +48,7 @@ void LedProtocolParser::feedBit(uint8_t bit) {
 }
 
 void LedProtocolParser::fail() {
+  errorCount++;
   Serial.println("error");
   state = WAIT_FOR_SILENCE;
 }

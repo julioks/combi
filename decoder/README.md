@@ -21,9 +21,9 @@ generating matching Manchester WAV files.
 - Streams repeated frames from one packet until silence resets the decoder.
 - Supports guarded in-band resync chunks that resend sync, header, and palette
   data without requiring a long silence reset.
-- Can render to a 16x16 NeoPixel matrix or print decoded frames over Serial.
+- Can render to a 20x20 NeoPixel matrix or print decoded frames over Serial.
 - Includes an optional raw visualizer mode that treats decoded bits as a
-  continuous 16x16 RGB byte stream.
+  continuous physical-grid RGB byte stream.
 
 ## Signal Format
 
@@ -75,17 +75,17 @@ resets the payload parser, and reacquires timing from the following preamble.
 Normal tape drift correction still runs on valid boundary and mid-bit edges.
 
 The ESP32 decoder currently caps decoded grid storage at `MAX_GRID_PIXELS`
-(`2048` pixels in `Config.h`). The NeoPixel output driver displays onto a
-16x16 physical grid, cropping oversized decoded frames and leaving missing
-pixels off.
+(`2048` pixels in `Config.h`). The NeoPixel output driver displays onto the
+configured physical grid (`20x20` by default), cropping oversized decoded
+frames and leaving missing pixels off.
 
 ## Hardware Defaults
 
 - Comparator output: ESP32 GPIO27
-- NeoPixel data output: ESP32 GPIO12
-- Physical LED matrix: 16x16
-- Default LED layout: column-major serpentine
-- Serial baud: 115200
+- NeoPixel data output: ESP32 GPIO23
+- Physical LED matrix: 20x20
+- Default LED layout: split 10x20 serpentine, flipped Y
+- Serial baud: 921600
 
 The comparator output must be 0 to 3.3 V. Connect comparator ground and ESP32
 ground together.
@@ -100,8 +100,10 @@ Important options:
   `LED_OUTPUT_DRIVER_SERIAL`.
 - `LED_SERIAL_OUTPUT_MODE`: selects frame-number-only Serial output or full
   frame dumps.
-- `LED_DRIVER_LAYOUT`: selects row-major, row-serpentine, column-major, or
-  column-serpentine physical LED mapping.
+- `LED_PANEL_PROFILE`: selects the panel profile; the default is the 20x20
+  demo panel.
+- `LED_DRIVER_LAYOUT`: selects row-major, row-serpentine, column-major,
+  column-serpentine, or split 10x20 physical LED mapping.
 - `RAW_AUDIO_RGB_TOGGLE_PIN`: set this to a GPIO to enable both normal packet
   decoding and raw audio RGB in one firmware. Wire a button from that pin to
   GND, or briefly short it to GND; each press toggles modes.
@@ -110,6 +112,10 @@ Important options:
 - `RAW_AUDIO_RGB_INVERT_BITS`: flips raw visualizer bits when needed.
 - `RAW_AUDIO_RGB_PUBLISH_FPS` and `RAW_AUDIO_RGB_FADE_STEP`: control raw
   visualizer refresh and fading.
+- `ZC_DIAGNOSTICS`: enables compact zero-cross timing stats over Serial.
+- `ZC_DIAGNOSTIC_INTERVAL_MS`: controls the stats print interval.
+- `ZC_MISSED_MID_RECOVERY`: enables conservative one-missed-mid-bit recovery
+  in the raw Manchester edge detector.
 
 The default output driver is NeoPixel. If the Adafruit NeoPixel library is not
 installed or no panel is connected, switch `LED_OUTPUT_DRIVER` to
@@ -145,7 +151,7 @@ continuous packet behavior.
   classification, preamble/SFD detection, polarity handling, and silence reset.
 - `LedProtocolParser.*`: normal packet payload parser for RGB and indexed
   frames.
-- `RawAudioRgbFramePusher.*`: optional raw 16x16 RGB visualizer path.
+- `RawAudioRgbFramePusher.*`: optional raw physical-grid RGB visualizer path.
 - `LedFrameGrid.*`: decoded RGB grid storage and frame-ready signaling.
 - `LedDriver.*`: common output-driver dispatch.
 - `LedNeoPixelDriver.*`: Adafruit NeoPixel matrix output.
@@ -166,6 +172,31 @@ debugging, set:
 ```
 
 before the default in `Config.h`, or pass the define through your build system.
+
+## TDK SA Baseline Capture
+
+Generate the first tape test WAV from the repository root:
+
+```powershell
+node tools\generate-tdk-sa-baseline-wav.js
+```
+
+The default output is:
+
+```text
+build\tape-tests\tdk-sa-baseline-6000bps.wav
+```
+
+Record that WAV to the TDK SA tape, play the tape back into the comparator
+input, then capture the ESP32 Serial output:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\capture-decoder-serial.ps1 -Port COM5
+```
+
+Replace `COM5` with the ESP32 port. The log is written under `logs\` by
+default. The `zc ...` lines are cumulative counters for edge timing, inferred
+mid bits, parser errors, ISR drops, ring backlog, and decoded frame count.
 
 ## Current Status
 

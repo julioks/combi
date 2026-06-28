@@ -18,8 +18,9 @@ static constexpr uint32_t ZC_BOUNDARY_MAX_NUM = 2;
 static constexpr uint32_t ZC_BOUNDARY_MAX_DEN = 3;
 static constexpr uint32_t ZC_MID_MIN_NUM = 3;
 static constexpr uint32_t ZC_MID_MIN_DEN = 4;
-static constexpr uint32_t ZC_MID_MAX_NUM = 3;
-static constexpr uint32_t ZC_MID_MAX_DEN = 2;
+static constexpr uint32_t ZC_MID_MAX_NUM = 4;
+static constexpr uint32_t ZC_MID_MAX_DEN = 3;
+static constexpr bool ZC_MISSED_MID_RECOVERY = true;
 
 struct ZeroCrossEdgeEvent {
   uint32_t t_us;
@@ -51,6 +52,9 @@ public:
     lastLevel = 0;
     haveLastMid = false;
     lastMidUs = 0;
+    haveLastAcceptedRawBit = false;
+    lastAcceptedRawBit = 0;
+    sawBoundarySinceLastMid = false;
     bitPeriodQ8 = 0;
     periodSamples = 0;
     resetPayloadConsumer();
@@ -75,12 +79,14 @@ public:
       return;
     }
 
-    if (event.level == lastLevel) {
-      resetTimingAndSearchFromThisEdge(event);
-      return;
-    }
+    const bool sameLevelAsLastEdge = (event.level == lastLevel);
 
     if (!timingReady()) {
+      if (sameLevelAsLastEdge) {
+        resetTimingAndSearchFromThisEdge(event);
+        return;
+      }
+
       if (gapFromLastEdge < ZC_MIN_PREAMBLE_GAP_US) {
         lastEdgeUs = event.t_us;
         lastLevel = event.level;
@@ -101,12 +107,15 @@ public:
       return;
     }
 
-    const uint32_t gapFromLastMid = event.t_us - lastMidUs;
     const uint32_t tooCloseMax = (bitUs * ZC_EDGE_TOO_CLOSE_NUM) / ZC_EDGE_TOO_CLOSE_DEN;
     const uint32_t boundaryMin = (bitUs * ZC_BOUNDARY_MIN_NUM) / ZC_BOUNDARY_MIN_DEN;
     const uint32_t boundaryMax = (bitUs * ZC_BOUNDARY_MAX_NUM) / ZC_BOUNDARY_MAX_DEN;
     const uint32_t midMin = (bitUs * ZC_MID_MIN_NUM) / ZC_MID_MIN_DEN;
     const uint32_t midMax = (bitUs * ZC_MID_MAX_NUM) / ZC_MID_MAX_DEN;
+
+    recoverOneMissedMidBitBefore(event, bitUs);
+
+    const uint32_t gapFromLastMid = event.t_us - lastMidUs;
 
     if (gapFromLastMid < tooCloseMax) {
       lastEdgeUs = event.t_us;
@@ -116,6 +125,7 @@ public:
 
     if (gapFromLastMid >= boundaryMin && gapFromLastMid <= boundaryMax) {
       updateBoundaryPeriod(gapFromLastMid);
+      sawBoundarySinceLastMid = true;
       lastEdgeUs = event.t_us;
       lastLevel = event.level;
       return;
@@ -167,6 +177,9 @@ private:
   uint8_t lastLevel = 0;
   bool haveLastMid = false;
   uint32_t lastMidUs = 0;
+  bool haveLastAcceptedRawBit = false;
+  uint8_t lastAcceptedRawBit = 0;
+  bool sawBoundarySinceLastMid = false;
   uint32_t bitPeriodQ8 = 0;
   uint8_t periodSamples = 0;
   bool havePrevMidBit = false;
@@ -297,8 +310,26 @@ private:
     }
   }
 
+  void feedInferredMidBit() {
+    if (!haveLastAcceptedRawBit) {
+      return;
+    }
+
+    const uint8_t rawBit = sawBoundarySinceLastMid
+      ? lastAcceptedRawBit
+      : (uint8_t)(lastAcceptedRawBit ^ 1U);
+
+    feedMidBit(rawBit);
+    lastAcceptedRawBit = rawBit;
+    sawBoundarySinceLastMid = false;
+  }
+
   void acceptMidBitEdge(const ZeroCrossEdgeEvent& event) {
-    feedMidBit(event.level ? 1 : 0);
+    const uint8_t rawBit = event.level ? 1 : 0;
+    feedMidBit(rawBit);
+    haveLastAcceptedRawBit = true;
+    lastAcceptedRawBit = rawBit;
+    sawBoundarySinceLastMid = false;
   }
 
   void treatEdgeAsFirstMidBit(const ZeroCrossEdgeEvent& event) {
@@ -311,11 +342,33 @@ private:
     resetPacketDecoderOnly();
     resetPayloadConsumer();
     haveLastMid = false;
+    haveLastAcceptedRawBit = false;
+    lastAcceptedRawBit = 0;
+    sawBoundarySinceLastMid = false;
     bitPeriodQ8 = 0;
     periodSamples = 0;
     lastEdgeUs = event.t_us;
     lastLevel = event.level;
     treatEdgeAsFirstMidBit(event);
   }
-};
 
+  bool recoverOneMissedMidBitBefore(const ZeroCrossEdgeEvent& event, uint32_t bitUs) {
+    if (!ZC_MISSED_MID_RECOVERY || !haveLastMid || !haveLastAcceptedRawBit || bitUs == 0) {
+      return false;
+    }
+
+    const uint32_t gapFromLastMid = event.t_us - lastMidUs;
+    const uint32_t boundaryMin = (bitUs * ZC_BOUNDARY_MIN_NUM) / ZC_BOUNDARY_MIN_DEN;
+    const uint32_t midMax = (bitUs * ZC_MID_MAX_NUM) / ZC_MID_MAX_DEN;
+    const uint32_t recoverMin = bitUs + boundaryMin;
+    const uint32_t recoverMax = bitUs + midMax;
+
+    if (gapFromLastMid <= midMax || gapFromLastMid < recoverMin || gapFromLastMid > recoverMax) {
+      return false;
+    }
+
+    lastMidUs += bitUs;
+    feedInferredMidBit();
+    return true;
+  }
+};

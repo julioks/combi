@@ -42,6 +42,7 @@ struct LedProtocolParser {
   uint8_t paletteUpdatesRemaining = 0;
   uint8_t pendingPaletteIndex = 0;
   RgbColor pendingPaletteColor = {0, 0, 0};
+  uint32_t errorCount = 0;
 
   void reset();
   void feedBit(uint8_t bit);
