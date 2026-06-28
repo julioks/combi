@@ -2,7 +2,7 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$Port,
 
-  [int]$Baud = 921600,
+  [int]$Baud = 115200,
 
   [string]$OutFile = "",
 

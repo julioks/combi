@@ -85,7 +85,7 @@ frames and leaving missing pixels off.
 - NeoPixel data output: ESP32 GPIO23
 - Physical LED matrix: 20x20
 - Default LED layout: split 10x20 serpentine, flipped Y
-- Serial baud: 921600
+- Serial baud: 115200
 
 The comparator output must be 0 to 3.3 V. Connect comparator ground and ESP32
 ground together.
@@ -195,7 +195,8 @@ powershell -ExecutionPolicy Bypass -File tools\capture-decoder-serial.ps1 -Port 
 ```
 
 Replace `COM5` with the ESP32 port. The log is written under `logs\` by
-default. The `zc ...` lines are cumulative counters for edge timing, inferred
+default, and the script uses `115200` baud unless `-Baud` is supplied. The
+`zc ...` lines are cumulative counters for edge timing, inferred
 mid bits, parser errors, ISR drops, ring backlog, and decoded frame count.
 
 ## Current Status

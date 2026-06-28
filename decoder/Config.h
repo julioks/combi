@@ -9,10 +9,10 @@
 // Hardware pin layout follows audiocodec/audiocodec.ino.
 static constexpr int CAPTURE_PIN = 21;
 
-// Higher baud keeps diagnostic logging from becoming the next missed-edge
-// source while recording tape playback runs.
+// Keep the default conservative for cheap USB-serial bridges and long cables.
+// The compact diagnostics are sparse enough for 115200 baud.
 #ifndef SERIAL_BAUD
-#define SERIAL_BAUD 921600
+#define SERIAL_BAUD 115200
 #endif
 
 // LED output driver selection.
