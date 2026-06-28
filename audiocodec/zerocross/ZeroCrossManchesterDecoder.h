@@ -18,9 +18,9 @@ static constexpr uint32_t ZC_BOUNDARY_MAX_NUM = 2;
 static constexpr uint32_t ZC_BOUNDARY_MAX_DEN = 3;
 static constexpr uint32_t ZC_MID_MIN_NUM = 3;
 static constexpr uint32_t ZC_MID_MIN_DEN = 4;
-static constexpr uint32_t ZC_MID_MAX_NUM = 4;
-static constexpr uint32_t ZC_MID_MAX_DEN = 3;
-static constexpr bool ZC_MISSED_MID_RECOVERY = true;
+static constexpr uint32_t ZC_MID_MAX_NUM = 3;
+static constexpr uint32_t ZC_MID_MAX_DEN = 2;
+static constexpr bool ZC_MISSED_MID_RECOVERY = false;
 
 struct ZeroCrossEdgeEvent {
   uint32_t t_us;

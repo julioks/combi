@@ -6,9 +6,9 @@ const path = require("path");
 const repoRoot = path.resolve(__dirname, "..");
 
 const defaults = {
-  out: path.join(repoRoot, "build", "tape-tests", "tdk-sa-baseline-6000bps.wav"),
+  out: path.join(repoRoot, "build", "tape-tests", "tdk-sa-baseline-4000bps.wav"),
   sampleRate: 48000,
-  bitRate: 6000,
+  bitRate: 4000,
   amplitude: 0.85,
   width: 20,
   height: 20,

@@ -114,8 +114,8 @@ Important options:
   visualizer refresh and fading.
 - `ZC_DIAGNOSTICS`: enables compact zero-cross timing stats over Serial.
 - `ZC_DIAGNOSTIC_INTERVAL_MS`: controls the stats print interval.
-- `ZC_MISSED_MID_RECOVERY`: enables conservative one-missed-mid-bit recovery
-  in the raw Manchester edge detector.
+- `ZC_MISSED_MID_RECOVERY`: optional one-missed-mid-bit recovery experiment in
+  the raw Manchester edge detector. The default is off.
 
 The default output driver is NeoPixel. If the Adafruit NeoPixel library is not
 installed or no panel is connected, switch `LED_OUTPUT_DRIVER` to
@@ -184,8 +184,12 @@ node tools\generate-tdk-sa-baseline-wav.js
 The default output is:
 
 ```text
-build\tape-tests\tdk-sa-baseline-6000bps.wav
+build\tape-tests\tdk-sa-baseline-4000bps.wav
 ```
+
+The default generator target is conservative for the first TDK SA tuning pass.
+Use `--bitRate 6000 --out build\tape-tests\tdk-sa-baseline-6000bps.wav` later
+when the 4 kbps run is clean.
 
 Record that WAV to the TDK SA tape, play the tape back into the comparator
 input, then capture the ESP32 Serial output:

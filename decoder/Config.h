@@ -164,11 +164,10 @@ static constexpr uint32_t BOUNDARY_MAX_NUM = 2; // 2/3 bit period
 static constexpr uint32_t BOUNDARY_MAX_DEN = 3;
 static constexpr uint32_t MID_MIN_NUM = 3; // 3/4 bit period
 static constexpr uint32_t MID_MIN_DEN = 4;
-// Keep the late-mid window below 1.5 bit periods. A 1.5-bit gap is exactly
-// where a missed mid-bit followed by a boundary edge lands, so accepting it as
-// a normal mid edge can hide a bit slip.
-static constexpr uint32_t MID_MAX_NUM = 4; // 4/3 bit period
-static constexpr uint32_t MID_MAX_DEN = 3;
+// Tolerate late mid-bit edges from tape timing skew. Bad chunks are expected
+// to be dropped and reacquired by the guarded resyncs.
+static constexpr uint32_t MID_MAX_NUM = 3; // 3/2 bit period
+static constexpr uint32_t MID_MAX_DEN = 2;
 
 // Zero-cross diagnostics are aggregated and printed from the decoder task,
 // never from the ISR.
@@ -180,12 +179,12 @@ static constexpr uint32_t MID_MAX_DEN = 3;
 #define ZC_DIAGNOSTIC_INTERVAL_MS 500
 #endif
 
-// If exactly one mid-bit edge appears to be missing, the decoder can insert an
-// inferred raw bit before classifying the current edge. This preserves bit
-// alignment for single dropped transition events without changing the packet
-// format.
+// Optional experiment: if exactly one mid-bit edge appears to be missing, the
+// decoder can insert an inferred raw bit before classifying the current edge.
+// Leave this off by default; guarded resyncs are safer than guessed bits until
+// logs show true isolated misses rather than tape timing skew.
 #ifndef ZC_MISSED_MID_RECOVERY
-#define ZC_MISSED_MID_RECOVERY 1
+#define ZC_MISSED_MID_RECOVERY 0
 #endif
 
 // Capture buffer.
