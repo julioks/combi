@@ -114,6 +114,9 @@ Important options:
   visualizer refresh and fading.
 - `ZC_DIAGNOSTICS`: enables compact zero-cross timing stats over Serial.
 - `ZC_DIAGNOSTIC_INTERVAL_MS`: controls the stats print interval.
+- `ZC_TRACK_BOUNDARY_PERIOD`: lets boundary edges tune the bit-period estimate.
+  The default is off because higher-speed tape runs showed boundary timing
+  distortion before mid-bit data edges failed.
 - `ZC_MISSED_MID_RECOVERY`: optional one-missed-mid-bit recovery experiment in
   the raw Manchester edge detector. The default is off.
 

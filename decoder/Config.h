@@ -155,19 +155,31 @@ static constexpr uint16_t MIN_ALTERNATING_BITS_BEFORE_SFD = 24;
 // Manchester edge classification.
 // Too-close transition: shorter than any plausible tape drift or Manchester edge.
 // Boundary transition: about 0.5 bit from last mid-bit transition.
-// Mid-bit transition: about 1.0 bit from last mid-bit transition.
+// Mid-bit transition: about 1.0 bit from last mid-bit transition. Tape
+// playback can pull real mid-bit edges early, especially at higher bit rates.
+// Only relax that lower bound when no boundary edge was already seen in the
+// same bit cell; after a boundary, an early transition is more likely chatter.
 static constexpr uint32_t EDGE_TOO_CLOSE_NUM = 1; // 1/3 bit period
 static constexpr uint32_t EDGE_TOO_CLOSE_DEN = 3;
 static constexpr uint32_t BOUNDARY_MIN_NUM = 1; // 1/3 bit period
 static constexpr uint32_t BOUNDARY_MIN_DEN = 3;
 static constexpr uint32_t BOUNDARY_MAX_NUM = 2; // 2/3 bit period
 static constexpr uint32_t BOUNDARY_MAX_DEN = 3;
-static constexpr uint32_t MID_MIN_NUM = 3; // 3/4 bit period
-static constexpr uint32_t MID_MIN_DEN = 4;
+static constexpr uint32_t MID_MIN_NO_BOUNDARY_NUM = 2; // 2/3 bit period
+static constexpr uint32_t MID_MIN_NO_BOUNDARY_DEN = 3;
+static constexpr uint32_t MID_MIN_AFTER_BOUNDARY_NUM = 3; // 3/4 bit period
+static constexpr uint32_t MID_MIN_AFTER_BOUNDARY_DEN = 4;
 // Tolerate late mid-bit edges from tape timing skew. Bad chunks are expected
 // to be dropped and reacquired by the guarded resyncs.
 static constexpr uint32_t MID_MAX_NUM = 3; // 3/2 bit period
 static constexpr uint32_t MID_MAX_DEN = 2;
+
+// Boundary edges are useful phase markers, but on tape they are more distorted
+// than mid-bit data edges. Leave them out of the period PLL by default so a
+// squeezed boundary cannot drag the bit estimate toward the unstable side.
+#ifndef ZC_TRACK_BOUNDARY_PERIOD
+#define ZC_TRACK_BOUNDARY_PERIOD 0
+#endif
 
 // Zero-cross diagnostics are aggregated and printed from the decoder task,
 // never from the ISR.

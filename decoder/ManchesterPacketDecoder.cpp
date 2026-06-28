@@ -403,7 +403,9 @@ void ManchesterPacketDecoder::processEdge(const EdgeEvent &event) {
   const uint32_t tooCloseMax = (bitUs * EDGE_TOO_CLOSE_NUM) / EDGE_TOO_CLOSE_DEN;
   const uint32_t boundaryMin = (bitUs * BOUNDARY_MIN_NUM) / BOUNDARY_MIN_DEN;
   const uint32_t boundaryMax = (bitUs * BOUNDARY_MAX_NUM) / BOUNDARY_MAX_DEN;
-  const uint32_t midMin = (bitUs * MID_MIN_NUM) / MID_MIN_DEN;
+  const uint32_t midMinNoBoundary = (bitUs * MID_MIN_NO_BOUNDARY_NUM) / MID_MIN_NO_BOUNDARY_DEN;
+  const uint32_t midMinAfterBoundary = (bitUs * MID_MIN_AFTER_BOUNDARY_NUM) / MID_MIN_AFTER_BOUNDARY_DEN;
+  const uint32_t midMin = sawBoundarySinceLastMid ? midMinAfterBoundary : midMinNoBoundary;
   const uint32_t midMax = (bitUs * MID_MAX_NUM) / MID_MAX_DEN;
 
   recoverOneMissedMidBitBefore(event, bitUs);
@@ -420,8 +422,11 @@ void ManchesterPacketDecoder::processEdge(const EdgeEvent &event) {
 
   if (gapFromLastMid >= boundaryMin && gapFromLastMid <= boundaryMax) {
     // Manchester boundary transition between two equal data bits.
-    // Real edge, but not the bit-value transition, so track timing only.
+    // Real edge, but not the bit-value transition. Use it as a phase marker;
+    // optionally let it tune timing for experiments.
+#if ZC_TRACK_BOUNDARY_PERIOD
     updateBoundaryPeriod(gapFromLastMid);
+#endif
     sawBoundarySinceLastMid = true;
     statBoundaryEdges++;
     lastEdgeUs = event.t_us;

@@ -16,10 +16,13 @@ static constexpr uint32_t ZC_BOUNDARY_MIN_NUM = 1;
 static constexpr uint32_t ZC_BOUNDARY_MIN_DEN = 3;
 static constexpr uint32_t ZC_BOUNDARY_MAX_NUM = 2;
 static constexpr uint32_t ZC_BOUNDARY_MAX_DEN = 3;
-static constexpr uint32_t ZC_MID_MIN_NUM = 3;
-static constexpr uint32_t ZC_MID_MIN_DEN = 4;
+static constexpr uint32_t ZC_MID_MIN_NO_BOUNDARY_NUM = 2;
+static constexpr uint32_t ZC_MID_MIN_NO_BOUNDARY_DEN = 3;
+static constexpr uint32_t ZC_MID_MIN_AFTER_BOUNDARY_NUM = 3;
+static constexpr uint32_t ZC_MID_MIN_AFTER_BOUNDARY_DEN = 4;
 static constexpr uint32_t ZC_MID_MAX_NUM = 3;
 static constexpr uint32_t ZC_MID_MAX_DEN = 2;
+static constexpr bool ZC_TRACK_BOUNDARY_PERIOD = false;
 static constexpr bool ZC_MISSED_MID_RECOVERY = false;
 
 struct ZeroCrossEdgeEvent {
@@ -110,7 +113,9 @@ public:
     const uint32_t tooCloseMax = (bitUs * ZC_EDGE_TOO_CLOSE_NUM) / ZC_EDGE_TOO_CLOSE_DEN;
     const uint32_t boundaryMin = (bitUs * ZC_BOUNDARY_MIN_NUM) / ZC_BOUNDARY_MIN_DEN;
     const uint32_t boundaryMax = (bitUs * ZC_BOUNDARY_MAX_NUM) / ZC_BOUNDARY_MAX_DEN;
-    const uint32_t midMin = (bitUs * ZC_MID_MIN_NUM) / ZC_MID_MIN_DEN;
+    const uint32_t midMinNoBoundary = (bitUs * ZC_MID_MIN_NO_BOUNDARY_NUM) / ZC_MID_MIN_NO_BOUNDARY_DEN;
+    const uint32_t midMinAfterBoundary = (bitUs * ZC_MID_MIN_AFTER_BOUNDARY_NUM) / ZC_MID_MIN_AFTER_BOUNDARY_DEN;
+    const uint32_t midMin = sawBoundarySinceLastMid ? midMinAfterBoundary : midMinNoBoundary;
     const uint32_t midMax = (bitUs * ZC_MID_MAX_NUM) / ZC_MID_MAX_DEN;
 
     recoverOneMissedMidBitBefore(event, bitUs);
@@ -124,7 +129,9 @@ public:
     }
 
     if (gapFromLastMid >= boundaryMin && gapFromLastMid <= boundaryMax) {
-      updateBoundaryPeriod(gapFromLastMid);
+      if (ZC_TRACK_BOUNDARY_PERIOD) {
+        updateBoundaryPeriod(gapFromLastMid);
+      }
       sawBoundarySinceLastMid = true;
       lastEdgeUs = event.t_us;
       lastLevel = event.level;
