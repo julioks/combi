@@ -191,12 +191,15 @@ static constexpr uint32_t MID_MAX_DEN = 2;
 #define ZC_DIAGNOSTIC_INTERVAL_MS 500
 #endif
 
-// Optional experiment: if exactly one mid-bit edge appears to be missing, the
-// decoder can insert an inferred raw bit before classifying the current edge.
-// Leave this off by default; guarded resyncs are safer than guessed bits until
-// logs show true isolated misses rather than tape timing skew.
+// If exactly one mid-bit edge appears to be missing after SFD lock, the decoder
+// can insert one inferred raw bit before classifying the current edge. This is
+// capped per guarded chunk; larger damage is still dropped by resync.
 #ifndef ZC_MISSED_MID_RECOVERY
-#define ZC_MISSED_MID_RECOVERY 0
+#define ZC_MISSED_MID_RECOVERY 1
+#endif
+
+#ifndef ZC_MAX_INFERRED_MID_BITS_PER_PACKET
+#define ZC_MAX_INFERRED_MID_BITS_PER_PACKET 1
 #endif
 
 // Capture buffer.

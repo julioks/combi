@@ -83,6 +83,7 @@ void ManchesterPacketDecoder::resetPacketDecoderOnly() {
 
   activeInvert = false;
   sfdBitsLeftToDiscard = 0;
+  inferredMidBitsThisPacket = 0;
 }
 
 void ManchesterPacketDecoder::resetPayloadConsumer() {
@@ -188,6 +189,7 @@ void ManchesterPacketDecoder::startSfdDiscard(uint8_t repeatedRawBit) {
   // The current repeated bit is already bit 0 of the 8-bit SFD.
   // Discard the remaining 7 SFD bits. The next bit after that is payload bit 0.
   sfdBitsLeftToDiscard = 7;
+  inferredMidBitsThisPacket = 0;
   statSfdLocks++;
 
 }
@@ -290,7 +292,11 @@ void ManchesterPacketDecoder::treatEdgeAsFirstMidBit(const EdgeEvent &event) {
 }
 
 void ManchesterPacketDecoder::resetTimingAndSearchFromThisEdge(const EdgeEvent &event) {
+  const bool wasReadingData = (mode == READ_DATA);
   statTimingResets++;
+  if (wasReadingData) {
+    statDataTimingResets++;
+  }
   resetPacketDecoderOnly();
   // Packet mode needs a fresh payload parser after an impossible Manchester
   // gap so guarded resync chunks can reacquire cleanly. Raw visualizer mode is
@@ -313,7 +319,13 @@ void ManchesterPacketDecoder::resetTimingAndSearchFromThisEdge(const EdgeEvent &
 
 bool ManchesterPacketDecoder::recoverOneMissedMidBitBefore(const EdgeEvent &event, uint32_t bitUs) {
 #if ZC_MISSED_MID_RECOVERY
-  if (!haveLastMid || !haveLastAcceptedRawBit || bitUs == 0) {
+  if (
+    mode != READ_DATA ||
+    inferredMidBitsThisPacket >= ZC_MAX_INFERRED_MID_BITS_PER_PACKET ||
+    !haveLastMid ||
+    !haveLastAcceptedRawBit ||
+    bitUs == 0
+  ) {
     return false;
   }
 
@@ -329,6 +341,7 @@ bool ManchesterPacketDecoder::recoverOneMissedMidBitBefore(const EdgeEvent &even
 
   lastMidUs += bitUs;
   feedInferredMidBit();
+  inferredMidBitsThisPacket++;
   return true;
 #else
   (void)event;
@@ -507,6 +520,8 @@ void ManchesterPacketDecoder::printDiagnostics(
   Serial.print(statSameLevelEdges);
   Serial.print(" long_reset=");
   Serial.print(statLongGapResets);
+  Serial.print(" data_reset=");
+  Serial.print(statDataTimingResets);
   Serial.print(" silence_reset=");
   Serial.print(statSilenceResets);
   Serial.print(" timing_reset=");

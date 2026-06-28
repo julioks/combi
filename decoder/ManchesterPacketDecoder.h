@@ -36,6 +36,7 @@ struct ManchesterPacketDecoder {
 
   bool activeInvert = false;
   uint8_t sfdBitsLeftToDiscard = 0;
+  uint8_t inferredMidBitsThisPacket = 0;
 
   uint32_t statEdgesSeen = 0;
   uint32_t statPreambleEdges = 0;
@@ -46,6 +47,7 @@ struct ManchesterPacketDecoder {
   uint32_t statEarlyEdges = 0;
   uint32_t statSameLevelEdges = 0;
   uint32_t statLongGapResets = 0;
+  uint32_t statDataTimingResets = 0;
   uint32_t statSilenceResets = 0;
   uint32_t statTimingResets = 0;
   uint32_t statSfdLocks = 0;

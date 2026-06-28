@@ -23,7 +23,8 @@ static constexpr uint32_t ZC_MID_MIN_AFTER_BOUNDARY_DEN = 4;
 static constexpr uint32_t ZC_MID_MAX_NUM = 3;
 static constexpr uint32_t ZC_MID_MAX_DEN = 2;
 static constexpr bool ZC_TRACK_BOUNDARY_PERIOD = false;
-static constexpr bool ZC_MISSED_MID_RECOVERY = false;
+static constexpr bool ZC_MISSED_MID_RECOVERY = true;
+static constexpr uint8_t ZC_MAX_INFERRED_MID_BITS_PER_PACKET = 1;
 
 struct ZeroCrossEdgeEvent {
   uint32_t t_us;
@@ -194,6 +195,7 @@ private:
   uint16_t alternatingRun = 0;
   bool activeInvert = false;
   uint8_t sfdBitsLeftToDiscard = 0;
+  uint8_t inferredMidBitsThisPacket = 0;
 
   void resetPacketDecoderOnly() {
     mode = SEARCH_PREAMBLE_AND_SFD;
@@ -202,6 +204,7 @@ private:
     alternatingRun = 0;
     activeInvert = false;
     sfdBitsLeftToDiscard = 0;
+    inferredMidBitsThisPacket = 0;
   }
 
   void resetPayloadConsumer() {
@@ -259,6 +262,7 @@ private:
     activeInvert = repeatedRawBit == 0;
     mode = DISCARD_SFD_REMAINDER;
     sfdBitsLeftToDiscard = 7;
+    inferredMidBitsThisPacket = 0;
   }
 
   void feedPreambleSearchBit(uint8_t rawBit) {
@@ -360,7 +364,14 @@ private:
   }
 
   bool recoverOneMissedMidBitBefore(const ZeroCrossEdgeEvent& event, uint32_t bitUs) {
-    if (!ZC_MISSED_MID_RECOVERY || !haveLastMid || !haveLastAcceptedRawBit || bitUs == 0) {
+    if (
+      !ZC_MISSED_MID_RECOVERY ||
+      mode != READ_DATA ||
+      inferredMidBitsThisPacket >= ZC_MAX_INFERRED_MID_BITS_PER_PACKET ||
+      !haveLastMid ||
+      !haveLastAcceptedRawBit ||
+      bitUs == 0
+    ) {
       return false;
     }
 
@@ -376,6 +387,7 @@ private:
 
     lastMidUs += bitUs;
     feedInferredMidBit();
+    inferredMidBitsThisPacket++;
     return true;
   }
 };
